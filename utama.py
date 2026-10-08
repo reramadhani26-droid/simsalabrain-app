@@ -304,7 +304,7 @@ elif menu == "🔍 Rekomendasi & Telusuri Web":
             with col_lk:
                 st.caption(f"Tautan: {rec['url']}")
             with col_rk:
-                if st.button(f"🚀 Rangkum & Buat Kuis Website Ini #{i+1}", key=f"btn_rk_{i}"):
+                if st.button(f"🚀 Rangkum Website Ini #{i+1}", key=f"btn_rk_{i}"):
                     with st.spinner(f"📥 Mengambil teks dari {rec['nama_sumber']} dan menyusun modul..."):
                         teks_web = ambil_teks_dari_url(rec['url'])
                         if not teks_web or len(teks_web) < 100:
@@ -404,4 +404,4 @@ elif menu == "📚 Perpustakaan Riwayat":
         else:
             df = df.iloc[::-1]
             for index, row in df.iterrows():
-                with st.expander(f"🕰️ {row
+                with st.expander(f"🕰️ {row['tanggal']}
