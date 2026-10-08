@@ -30,7 +30,7 @@ with st.sidebar:
     st.divider()
     
     st.info("🔐 Koneksi ke Server AI Pusat dienkripsi dan aman.")
-    # Mengambil API key langsung dari Secrets (Brankas) tanpa menampilkannya di layar
+    # Mengambil API key langsung dari Secrets (Brankas)
     try:
         api_key_rahasia = st.secrets["GEMINI_API_KEY"]
     except:
@@ -64,7 +64,24 @@ if menu == "✨ Buat Ringkasan":
         else:
             try:
                 genai.configure(api_key=api_key_rahasia)
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                
+                # --- SISTEM PELACAK MODEL AI OTOMATIS (ANTI ERROR 404) ---
+                model_tersedia = ""
+                for m in genai.list_models():
+                    if 'generateContent' in m.supported_generation_methods:
+                        if 'flash' in m.name:
+                            model_tersedia = m.name
+                            break
+                        elif not model_tersedia:
+                            model_tersedia = m.name
+                
+                if not model_tersedia:
+                    st.error("⚠️ API Key kamu tidak memiliki akses ke mesin AI teks. Buat API Key baru.")
+                    st.stop()
+                
+                nama_model_bersih = model_tersedia.replace("models/", "")
+                model = genai.GenerativeModel(nama_model_bersih)
+                # ---------------------------------------------------------
                 
                 # Instruksi Dasar untuk AI
                 prompt_instruksi = """
@@ -90,16 +107,13 @@ if menu == "✨ Buat Ringkasan":
                 if file_unggahan is not None:
                     tipe_file = file_unggahan.name.split('.')[-1].lower()
                     
-                    # Jika file didukung langsung oleh sistem AI (PDF & Gambar)
                     if tipe_file == 'pdf' or tipe_file in ['jpg', 'jpeg', 'png']:
                         paket_data_ai.append({
                             "mime_type": file_unggahan.type,
                             "data": file_unggahan.getvalue()
                         })
-                    # Jika TXT biasa
                     elif tipe_file == 'txt':
                         paket_data_ai.append(f"\nIsi Dokumen TXT:\n{file_unggahan.getvalue().decode('utf-8')}")
-                    # Jika Microsoft Word
                     elif tipe_file == 'docx':
                         try:
                             import docx
@@ -109,7 +123,6 @@ if menu == "✨ Buat Ringkasan":
                         except ImportError:
                             st.error("⚠️ Modul 'python-docx' belum diinstal. Pastikan file requirements.txt sudah diupdate!")
                             bisa_diproses = False
-                    # Jika PowerPoint
                     elif tipe_file == 'pptx':
                         try:
                             from pptx import Presentation
@@ -129,7 +142,7 @@ if menu == "✨ Buat Ringkasan":
                     with st.spinner("🧠 Mesin sedang membaca dokumen, merumuskan metode hafalan, dan menyusun kuis..."):
                         respons = model.generate_content(paket_data_ai)
                         
-                        # Penyaring JSON Otomatis
+                        # Penyaring JSON Otomatis yang sangat aman
                         teks_mentah = respons.text
                         awal_json = teks_mentah.find('{')
                         akhir_json = teks_mentah.rfind('}')
