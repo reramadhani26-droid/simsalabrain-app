@@ -417,5 +417,4 @@ elif menu == "📚 Perpustakaan Riwayat":
                     
     except Exception as e:
         st.error(f"Gagal membaca perpustakaan database. Detail: {e}")
-```eof
         
