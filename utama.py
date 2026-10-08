@@ -76,7 +76,9 @@ if menu == "✨ Buat Ringkasan":
                 # Mengambil API Key dari Brankas Rahasia Streamlit (Secrets)
                 api_key_rahasia = st.secrets["GEMINI_API_KEY"]
                 genai.configure(api_key=api_key_rahasia)
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                
+                # MENGGUNAKAN MODEL STANDAR (ANTI-ERROR)
+                model = genai.GenerativeModel('gemini-pro')
                 
                 prompt = f"""
                 Bertindaklah sebagai asisten guru terbaik.
