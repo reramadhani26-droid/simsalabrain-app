@@ -11,13 +11,8 @@ st.set_page_config(page_title="SimSalaBrain Pro", page_icon="🚀", layout="wide
 # --- SUNTIKAN DESAIN UI/UX MODERN (CSS) ---
 st.markdown("""
 <style>
-    /* Mengubah font utama ke gaya modern */
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
-    html, body, [class*="css"] {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-    }
-    
-    /* Judul Utama dengan Gradasi Warna */
+    html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
     .judul-gradasi {
         background: linear-gradient(90deg, #FF416C 0%, #FF4B2B 100%);
         -webkit-background-clip: text;
@@ -27,8 +22,6 @@ st.markdown("""
         margin-bottom: 0px;
         padding-bottom: 10px;
     }
-    
-    /* Tombol Utama yang Elegan */
     .stButton>button {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
@@ -44,10 +37,7 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 8px 25px rgba(118, 75, 162, 0.6);
         color: white;
-        border: none;
     }
-    
-    /* Desain Kartu (Expander) */
     div[data-testid="stExpander"] {
         background-color: #ffffff;
         border-radius: 15px;
@@ -55,8 +45,6 @@ st.markdown("""
         border: 1px solid #f0f0f0;
         margin-bottom: 15px;
     }
-    
-    /* Kotak Pesan Jembatan Keledai */
     .jembatan-keledai {
         background: linear-gradient(to right, #f6d365 0%, #fda085 100%);
         padding: 15px 20px;
@@ -66,8 +54,6 @@ st.markdown("""
         margin-top: 10px;
         box-shadow: 0 4px 6px rgba(253, 160, 133, 0.3);
     }
-    
-    /* Styling Sidebar */
     [data-testid="stSidebar"] {
         background-color: #f8f9fa;
         border-right: 1px solid #e9ecef;
@@ -78,8 +64,7 @@ st.markdown("""
 # --- INISIALISASI DATABASE CSV ---
 DB_FILE = "riwayat.csv"
 if not os.path.exists(DB_FILE):
-    df_awal = pd.DataFrame(columns=["tanggal", "topik_utama", "data_json"])
-    df_awal.to_csv(DB_FILE, index=False)
+    pd.DataFrame(columns=["tanggal", "topik_utama", "data_json"]).to_csv(DB_FILE, index=False)
 
 def simpan_ke_csv(topik, data_json_str):
     df = pd.read_csv(DB_FILE)
@@ -121,7 +106,7 @@ if menu == "✨ Papan Belajar Utama":
         st.markdown("**2. 📎 ATAU Unggah File Dokumen/Foto:**")
         file_unggahan = st.file_uploader("Upload File", type=["pdf", "docx", "pptx", "txt", "jpg", "jpeg", "png"], label_visibility="collapsed")
         
-    st.write("") # Spasi
+    st.write("") 
     tombol_proses = st.button("🚀 Mulai Analisis Ajaib!", use_container_width=True)
     
     if tombol_proses:
@@ -131,10 +116,7 @@ if menu == "✨ Papan Belajar Utama":
             st.warning("⚠️ Masukkan materi (teks atau file) terlebih dahulu!")
         else:
             try:
-                # Menghubungkan API
                 genai.configure(api_key=api_key_rahasia)
-                
-                # MEMAKSA MENGGUNAKAN MODEL YANG DIMINTA OLEH ERROR (gemini-3.8-flash)
                 model = genai.GenerativeModel("gemini-3.8-flash")
                 
                 prompt_instruksi = """
@@ -153,7 +135,6 @@ if menu == "✨ Papan Belajar Utama":
                 
                 bisa_diproses = True
                 
-                # Membaca File Ext
                 if file_unggahan:
                     ext = file_unggahan.name.split('.')[-1].lower()
                     if ext in ['pdf', 'jpg', 'jpeg', 'png']:
@@ -185,7 +166,6 @@ if menu == "✨ Papan Belajar Utama":
                     with st.spinner("⏳ Mengaktifkan Mesin Pembelajaran Otomatis..."):
                         respons = model.generate_content(paket_data_ai)
                         
-                        # Penyaring JSON Tingkat Tinggi
                         teks_raw = respons.text
                         idx_start = teks_raw.find('{')
                         idx_end = teks_raw.rfind('}')
@@ -204,7 +184,6 @@ if menu == "✨ Papan Belajar Utama":
             except Exception as e:
                 st.error(f"Terjadi masalah pada server. Detail: {str(e)}")
 
-    # TAMPILAN HASIL (UI KARTU)
     if 'data_hasil' in st.session_state:
         data = st.session_state['data_hasil']
         st.write("---")
@@ -268,7 +247,7 @@ elif menu == "📚 Perpustakaan Riwayat":
         if df.empty:
             st.info("📦 Perpustakaan masih kosong. Ayo mulai meringkas materi pertamamu!")
         else:
-            df = df.iloc[::-1] # Urutkan dari yang terbaru
+            df = df.iloc[::-1]
             for index, row in df.iterrows():
                 with st.expander(f"🕰️ {row['tanggal']} | {row['topik_utama']}"):
                     data_riwayat = json.loads(row['data_json'])
@@ -283,18 +262,3 @@ elif menu == "📚 Perpustakaan Riwayat":
                     
     except Exception as e:
         st.error(f"Gagal membaca perpustakaan database. Detail: {e}")
-```eof
-
-### Apa yang saya tingkatkan di pembaruan ini?
-1. **Perbaikan Total Model AI (Anti 404):** Saya telah mengubah perintah *backend*-nya secara paksa menjadi **`gemini-3.8-flash`** persis sesuai yang diperintahkan oleh notifikasi di gambar yang kamu kirimkan. 
-2. **Suntikan Desain CSS (UI/UX Keren):** Kamu akan melihat perubahannya saat menjalankannya. Judulnya kini bergradasi merah-oranye, tombolnya menggunakan gaya gradasi ungu dengan animasi melayang saat disentuh (*hover*), dan setiap "Jembatan Keledai" memiliki kotak khusus berwarna cerah yang *eye-catching*.
-3. **Papan Skor Raksasa:** Ketika kamu selesai menjawab kuis, skornya tidak lagi berbentuk tulisan kecil biasa, tetapi menggunakan kotak besar dengan warna yang menyesuaikan (Hijau jika nilainya bagus, Merah jika kurang).
-4. **Ikon dan Kerapian:** Sidebar dan navigasi menu telah ditata layaknya *Software as a Service* (SaaS) berbayar.
-
-### Langkah Eksekusi (Seperti biasa):
-1. Buka file `utama.py` di GitHub kamu.
-2. Hapus seluruh isinya (*Select All* > *Hapus*).
-3. Salin semua teks di dalam blok kode di atas.
-4. Tempel (*Paste*) ke GitHub, lalu klik **Commit changes**.
-
-Setelah kamu muat ulang (*Refresh*) web Streamlit-mu, kamu akan melihat perubahan tampilannya yang sangat mewah, dan yang terpenting, ia akan merangkum dengan lancar tanpa terhalang *error* 404 lagi! Selamat mencoba!
