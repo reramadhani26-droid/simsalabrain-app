@@ -60,12 +60,10 @@ if menu == "✨ Buat Ringkasan":
             try:
                 genai.configure(api_key=api_key_rahasia)
                 
-                # --- SISTEM AI PUSAT (MEMPERBAIKI ERROR 404) ---
-                with st.spinner("Menghubungkan ke Mesin AI Utama..."):
-                    # Menggunakan versi mesin cerdas terbaru sesuai instruksi sistem server
-                    model_aktif = 'gemini-3.8-flash'
-                            
+                # Menggunakan mesin paling stabil dan kuat saat ini
+                model_aktif = 'gemini-1.5-flash'
                 st.success("✅ Terhubung ke Mesin Pembelajaran Otomatis.")
+                
                 model = genai.GenerativeModel(model_aktif)
                 
                 prompt = f"""
@@ -84,15 +82,28 @@ if menu == "✨ Buat Ringkasan":
                 
                 with st.spinner("🧠 Mesin sedang membaca, merumuskan metode hafalan, dan menyusun kuis..."):
                     respons = model.generate_content(prompt)
-                    teks_bersih = respons.text.replace("```json", "").replace("```", "").strip()
-                    data_ai = json.loads(teks_bersih)
+                    teks_mentah = respons.text
+                    
+                    # --- PENYARING DATA CERDAS (Mencegah Error) ---
+                    # Mencari kurung kurawal pembuka dan penutup untuk memastikan format JSON bersih
+                    awal_json = teks_mentah.find('{')
+                    akhir_json = teks_mentah.rfind('}')
+                    
+                    if awal_json != -1 and akhir_json != -1:
+                        teks_json_bersih = teks_mentah[awal_json:akhir_json+1]
+                        data_ai = json.loads(teks_json_bersih)
+                    else:
+                        # Jika tidak ditemukan, coba parse paksa
+                        data_ai = json.loads(teks_mentah)
                 
                 st.session_state['data_hasil'] = data_ai
                 st.session_state['skor'] = 0
                 st.success("✅ Analisis Materi Selesai!")
                 
             except Exception as e:
-                st.error("Terjadi masalah pada server. Pastikan teks tidak mengandung karakter aneh atau coba beberapa saat lagi.")
+                # Sekarang pesan error aslinya akan dimunculkan ke layar
+                st.error(f"⚠️ Proses Gagal! Detail Error: {str(e)}")
+                st.info("💡 Jika error bertuliskan 'JSON', coba ubah teks materi menjadi lebih singkat. Jika '404', API Key mungkin perlu diperiksa.")
 
     if 'data_hasil' in st.session_state:
         data = st.session_state['data_hasil']
