@@ -161,22 +161,34 @@ if menu == "✨ Papan Belajar Utama":
 
             if bisa_diproses:
                 with st.spinner("⏳ Mengaktifkan Mesin Pembelajaran Otomatis..."):
-                    try:
-                        model_utama = genai.GenerativeModel("gemini-1.5-flash")
-                        respons = model_utama.generate_content(paket_data_ai)
-                    except Exception as e1:
-                        if "429" in str(e1) or "quota" in str(e1).lower():
-                            try:
-                                st.toast("🔄 Mesin utama sibuk. Mengalihkan ke mesin cadangan...", icon="⚙️")
-                                model_cadangan = genai.GenerativeModel("gemini-1.5-pro")
-                                respons = model_cadangan.generate_content(paket_data_ai)
-                            except Exception as e2:
-                                st.error("❌ Jatah harian API kamu sudah habis. Silakan gunakan kunci API dari akun Google lain.")
-                                st.stop()
-                        else:
-                            st.error(f"Terjadi masalah pada server. Detail: {str(e1)}")
-                            st.stop()
                     
+                    # LOGIKA ANTI-LIMIT & ANTI-404 (SISTEM FALLBACK)
+                    daftar_mesin = [
+                        "models/gemini-1.5-pro",
+                        "models/gemini-pro",
+                        "models/gemini-1.0-pro"
+                    ]
+                    
+                    respons = None
+                    error_terakhir = ""
+                    
+                    for nama_mesin in daftar_mesin:
+                        try:
+                            model_ai = genai.GenerativeModel(nama_mesin)
+                            respons = model_ai.generate_content(paket_data_ai)
+                            break # Jika berhasil, keluar dari loop
+                        except Exception as e:
+                            error_terakhir = str(e)
+                            continue # Coba mesin selanjutnya jika gagal
+                    
+                    if not respons:
+                        if "429" in error_terakhir or "quota" in error_terakhir.lower():
+                            st.error("❌ Semua Kuota Harian dari Google Habis! Google membatasi penggunaan gratis harian. Solusi: Ganti API Key di Streamlit Secrets dengan API Key dari akun Google yang berbeda.")
+                        else:
+                            st.error(f"❌ Server AI Menolak Permintaan: {error_terakhir}. Pastikan API Key valid dan Google mengizinkan akses model.")
+                        st.stop()
+                    
+                    # Memproses Hasil JSON
                     try:
                         teks_raw = respons.text
                         idx_start = teks_raw.find('{')
