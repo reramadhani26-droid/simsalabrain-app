@@ -404,4 +404,4 @@ elif menu == "📚 Perpustakaan Riwayat":
         else:
             df = df.iloc[::-1]
             for index, row in df.iterrows():
-                judul_tampil = "Topik: " + str(row['top
+                with st.expander("Riwayat: " + str(row[
