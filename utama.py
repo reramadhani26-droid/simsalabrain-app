@@ -404,4 +404,18 @@ elif menu == "📚 Perpustakaan Riwayat":
         else:
             df = df.iloc[::-1]
             for index, row in df.iterrows():
-                with st.expander("Riwayat: " + str(row[
+                with st.expander("Riwayat: " + str(row['topik_utama'])):
+                    data_riwayat = json.loads(row['data_json'])
+                    
+                    st.markdown("### Ringkasan Materi:")
+                    for item in data_riwayat.get('ringkasan', []):
+                        st.markdown(f"**{item['topik']}**")
+                        st.write(item['penjelasan'])
+                        st.markdown(f"<div style='background-color:#fff3cd; padding:10px; border-radius:5px; color:#856404; font-size:14px;'>💡 <b>Hafalan:</b> {item['jembatan_keledai']}</div><br>", unsafe_allow_html=True)
+                        
+                    st.markdown(f"**Jumlah Soal Kuis:** {len(data_riwayat.get('kuis', []))} Soal Siap Dikerjakan")
+                    
+    except Exception as e:
+        st.error(f"Gagal membaca perpustakaan database. Detail: {e}")
+```eof
+        
