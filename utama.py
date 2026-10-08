@@ -136,27 +136,6 @@ def sanitize_json_response(raw_text):
     except:
         return None
 
-# --- MESIN PINTAR ANTI-ERROR (FALLBACK OTOMATIS) ---
-def panggil_ai_dengan_fallback(paket_data):
-    """Fungsi ajaib ini akan mencoba SEMUA model Google sampai berhasil, mencegah error 404."""
-    daftar_mesin = [
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro-latest",
-        "gemini-pro",
-        "gemini-1.0-pro"
-    ]
-    error_terakhir = ""
-    for nama_mesin in daftar_mesin:
-        try:
-            model_ai = genai.GenerativeModel(nama_mesin)
-            respons = model_ai.generate_content(paket_data)
-            return respons
-        except Exception as e:
-            error_terakhir = str(e)
-            continue
-    raise Exception(error_terakhir)
-
 # --- SIDEBAR NAVIGASI ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #764ba2;'>🚀 SimSalaBrain</h1>", unsafe_allow_html=True)
@@ -207,7 +186,7 @@ if menu == "✨ Papan Belajar Utama":
             2. "ringkasan": Ekstrak SEMUA konsep TANPA ADA YANG TERLEWAT. Buat sangat detail dan rapi. Setiap topik WAJIB punya "penjelasan" panjang, dan "jembatan_keledai" (singkatan atau kalimat lucu untuk menghafal).
             3. "kuis": Buat kuis pilihan ganda. WAJIB MINIMAL 10 SOAL komprehensif.
             
-            ATURAN KUIS SANGAT PENTING: Nilai dari "jawaban_benar" HARUS SAMA PERSIS dengan teks opsi yang benar.
+            ATURAN KUIS SANGAT PENTING: Nilai dari "jawaban_benar" HARUS SAMA PERSIS (huruf per huruf, spasi per spasi) dengan salah satu teks yang ada di dalam daftar "opsi". Jangan hanya menaruh huruf 'A' atau 'B'.
 
             KEMBALIKAN OUTPUT HANYA FORMAT JSON MURNI:
             {"topik_utama": "...", "ringkasan": [{"topik": "...", "penjelasan": "...", "jembatan_keledai": "..."}], "kuis": [{"pertanyaan": "...", "opsi": ["Pilihan 1", "Pilihan 2", "Pilihan 3", "Pilihan 4"], "jawaban_benar": "Pilihan 2", "pembahasan": "..."}]}
@@ -246,22 +225,31 @@ if menu == "✨ Papan Belajar Utama":
 
             if bisa_diproses:
                 with st.spinner("⏳ Mengaktifkan Mesin Pembelajaran Otomatis..."):
-                    try:
-                        respons = panggil_ai_dengan_fallback(paket_data_ai)
-                        data_ai = sanitize_json_response(respons.text)
-                        
-                        if data_ai:
-                            st.session_state['data_hasil'] = data_ai
-                            st.session_state['skor'] = 0
-                            st.balloons()
-                            st.success("✨ Modul Belajar Siap!")
-                        else:
-                            st.error("Mesin gagal menyusun struktur data. Silakan klik tombol analisis sekali lagi.")
-                    except Exception as err:
-                        if "429" in str(err) or "quota" in str(err).lower():
-                            st.error("❌ Kuota API Google kamu sepertinya habis. Solusi: Buat API Key baru dari akun Gmail yang berbeda.")
-                        else:
-                            st.error(f"Terjadi kesalahan koneksi AI: {err}")
+                    daftar_mesin = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp"]
+                    respons = None
+                    error_terakhir = ""
+                    
+                    for nama_mesin in daftar_mesin:
+                        try:
+                            model_ai = genai.GenerativeModel(nama_mesin)
+                            respons = model_ai.generate_content(paket_data_ai)
+                            break 
+                        except Exception as e:
+                            error_terakhir = str(e)
+                            continue 
+                    
+                    if not respons:
+                        st.error("❌ Kuota API Google kamu sepertinya habis (Error 429). Solusi: Buat API Key baru dari akun Gmail yang berbeda di Google AI Studio, lalu masukkan ke menu Secrets.")
+                        st.stop()
+                    
+                    data_ai = sanitize_json_response(respons.text)
+                    if data_ai:
+                        st.session_state['data_hasil'] = data_ai
+                        st.session_state['skor'] = 0
+                        st.balloons()
+                        st.success("✨ Modul Belajar Siap!")
+                    else:
+                        st.error("Mesin gagal menyusun struktur data. Silakan klik tombol analisis sekali lagi.")
 
 # --- MENU 2: REKOMENDASI & TELUSURI WEB BERBASIS TOPIK ---
 elif menu == "🔍 Rekomendasi & Telusuri Web":
@@ -292,7 +280,8 @@ elif menu == "🔍 Rekomendasi & Telusuri Web":
             """
             with st.spinner("🔍 Mencari sumber referensi website terbaik di internet..."):
                 try:
-                    respons = panggil_ai_dengan_fallback([prompt_rekomendasi])
+                    model_ai = genai.GenerativeModel("gemini-1.5-flash")
+                    respons = model_ai.generate_content(prompt_rekomendasi)
                     rekomendasi_list = sanitize_json_response(respons.text)
                     
                     if rekomendasi_list and isinstance(rekomendasi_list, list):
@@ -302,7 +291,7 @@ elif menu == "🔍 Rekomendasi & Telusuri Web":
                     else:
                         st.error("Gagal memuat format rekomendasi dari server. Silakan coba klik sekali lagi.")
                 except Exception as e:
-                    if "429" in str(e) or "quota" in str(e).lower():
+                    if "429" in str(e):
                         st.error("❌ Kuota API Google harianmu habis. Gunakan API Key dari akun Gmail lain.")
                     else:
                         st.error(f"Terjadi kesalahan koneksi AI: {e}")
@@ -344,13 +333,14 @@ elif menu == "🔍 Rekomendasi & Telusuri Web":
                             2. "ringkasan": Ekstrak SEMUA konsep. Setiap topik WAJIB punya "penjelasan" panjang, dan "jembatan_keledai" (singkatan atau kalimat lucu untuk menghafal).
                             3. "kuis": Buat kuis pilihan ganda. WAJIB MINIMAL 10 SOAL komprehensif.
                             
-                            ATURAN KUIS SANGAT PENTING: Nilai dari "jawaban_benar" HARUS SAMA PERSIS dengan teks opsi yang benar.
+                            ATURAN KUIS SANGAT PENTING: Nilai dari "jawaban_benar" HARUS SAMA PERSIS (huruf per huruf) dengan salah satu teks yang ada di dalam daftar "opsi". Jangan menaruh format berbeda.
 
                             KEMBALIKAN OUTPUT HANYA FORMAT JSON MURNI:
                             {{"topik_utama": "...", "ringkasan": [{{"topik": "...", "penjelasan": "...", "jembatan_keledai": "..."}}], "kuis": [{{"pertanyaan": "...", "opsi": ["A", "B", "C", "D"], "jawaban_benar": "B", "pembahasan": "..."}}]}}
                             """
                             try:
-                                resp_web = panggil_ai_dengan_fallback([prompt_rangkum_situs])
+                                model_ai = genai.GenerativeModel("gemini-1.5-flash")
+                                resp_web = model_ai.generate_content(prompt_rangkum_situs)
                                 data_web = sanitize_json_response(resp_web.text)
                                 
                                 if data_web:
@@ -361,7 +351,7 @@ elif menu == "🔍 Rekomendasi & Telusuri Web":
                                 else:
                                     st.error("Gagal menyusun format kuis. Coba klik lagi.")
                             except Exception as err:
-                                if "429" in str(err) or "quota" in str(err).lower():
+                                if "429" in str(err):
                                      st.error("❌ Kuota API Google harianmu habis. Gunakan API Key baru.")
                                 else:
                                     st.error(f"Gagal memproses situs web: {err}")
@@ -392,6 +382,7 @@ if 'data_hasil' in st.session_state and menu in ["✨ Papan Belajar Utama", "�
         jawaban_user = {}
         for i, soal in enumerate(data.get('kuis', [])):
             st.markdown(f"**Soal {i+1} | {soal.get('pertanyaan', '')}**")
+            # Pastikan opsi adalah list string
             opsi_list = [str(opt) for opt in soal.get('opsi', [])]
             jawaban_user[i] = st.radio(f"Pilih jawaban soal {i+1}:", opsi_list, key=f"soal_{i}", label_visibility="collapsed")
             st.write("")
@@ -402,10 +393,9 @@ if 'data_hasil' in st.session_state and menu in ["✨ Papan Belajar Utama", "�
             for i, soal in enumerate(data.get('kuis', [])):
                 kunci = str(soal.get('jawaban_benar', '')).strip().lower()
                 jawab = str(jawaban_user[i]).strip().lower()
+                
+                # Cek kesamaan penuh atau jika kunci ada di dalam jawaban (untuk kasus opsi A, B, C)
                 if jawab == kunci or kunci in jawab or jawab in kunci:
                     benar += 1
                     
             st.session_state['skor'] = int((benar / max(1, len(data['kuis']))) * 100)
-            st.session_state['jawaban_terkirim'] = True
-
-    if st.session_state.get('jawaban_terkirim', False):
