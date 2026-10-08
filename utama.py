@@ -1,17 +1,3 @@
-streamlit
-google-generativeai
-pandas
-python-docx
-python-pptx
-bcrypt
-```eof
-
-### Langkah 2: Perbarui Kode Utama (`utama.py`)
-Berikut adalah kode lengkap dengan sistem autentikasi pendaftaran & login email, desain modern bergradasi, serta sistem AI dengan model stabil terbaru. 
-
-Silakan salin seluruh kode di bawah ini, lalu tempel ke file **`utama.py`** di GitHub-mu (pastikan tidak ada teks ekstra di bagian bawah):
-
-```python:utama.py
 import streamlit as st
 import google.generativeai as genai
 import pandas as pd
@@ -366,4 +352,3 @@ elif menu == "📚 Perpustakaan Riwayat":
                     
     except Exception as e:
         st.error(f"Gagal membaca perpustakaan database. Detail: {e}")
-```eof
