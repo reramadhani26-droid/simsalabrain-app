@@ -4,6 +4,10 @@ import pandas as pd
 import json
 import os
 from datetime import datetime
+import urllib.request
+import urllib.error
+import re
+from html.parser import HTMLParser
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="SimSalaBrain Pro", page_icon="🚀", layout="wide")
@@ -74,6 +78,41 @@ def simpan_ke_csv(topik, data_json_str):
     df.to_csv(DB_FILE, index=False)
     return True
 
+# --- PARSER HTML SEDERHANA UNTUK SCRAPER URL ---
+class HTMLTextExtractor(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.text_result = []
+        self.ignore = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ['script', 'style', 'nav', 'footer', 'header']:
+            self.ignore = True
+
+    def handle_endtag(self, tag):
+        if tag in ['script', 'style', 'nav', 'footer', 'header']:
+            self.ignore = False
+
+    def handle_data(self, data):
+        if not self.ignore:
+            cleaned = data.strip()
+            if cleaned:
+                self.text_result.append(cleaned)
+
+def ambil_teks_dari_url(url):
+    try:
+        req = urllib.request.Request(
+            url, 
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        )
+        with urllib.request.urlopen(req, timeout=10) as response:
+            html_content = response.read().decode('utf-8', errors='ignore')
+            parser = HTMLTextExtractor()
+            parser.feed(html_content)
+            return " ".join(parser.text_result)
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
 # --- SIDEBAR NAVIGASI ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #764ba2;'>🚀 SimSalaBrain</h1>", unsafe_allow_html=True)
@@ -88,9 +127,9 @@ with st.sidebar:
         st.error("⚠️ Brankas API Key belum terisi.")
         
     st.divider()
-    menu = st.radio("Mulai Petualangan:", ["✨ Papan Belajar Utama", "📚 Perpustakaan Riwayat"])
+    menu = st.radio("Mulai Petualangan:", ["✨ Papan Belajar Utama", "🌐 Telusuri URL Website", "📚 Perpustakaan Riwayat"])
 
-# --- MENU 1: PAPAN BELAJAR ---
+# --- MENU 1: PAPAN BELAJAR UTAMA (TEKS & UPLOAD) ---
 if menu == "✨ Papan Belajar Utama":
     st.markdown("<h1 class='judul-gradasi'>Ruang Belajar Cerdas</h1>", unsafe_allow_html=True)
     st.markdown("<p style='font-size: 18px; color: #555;'>Ubah teks, PDF, Word, atau Gambar materi menjadi modul interaktif dalam hitungan detik.</p>", unsafe_allow_html=True)
@@ -161,14 +200,7 @@ if menu == "✨ Papan Belajar Utama":
 
             if bisa_diproses:
                 with st.spinner("⏳ Mengaktifkan Mesin Pembelajaran Otomatis..."):
-                    
-                    # DAFTAR MESIN TERBARU (OTOMATIS PILIH YANG AKTIF)
-                    daftar_mesin = [
-                        "gemini-3.1-pro-preview",
-                        "gemini-3-flash-preview",
-                        "gemini-3.8-flash"
-                    ]
-                    
+                    daftar_mesin = ["gemini-3.1-pro-preview", "gemini-3-flash-preview", "gemini-3.8-flash"]
                     respons = None
                     error_terakhir = ""
                     
@@ -182,10 +214,9 @@ if menu == "✨ Papan Belajar Utama":
                             continue 
                     
                     if not respons:
-                        st.error(f"❌ Server AI Menolak Permintaan: {error_terakhir}. Pastikan API Key valid.")
+                        st.error(f"❌ Server AI Menolak Permintaan: {error_terakhir}")
                         st.stop()
                     
-                    # Memproses Hasil JSON
                     try:
                         teks_raw = respons.text
                         idx_start = teks_raw.find('{')
@@ -204,59 +235,126 @@ if menu == "✨ Papan Belajar Utama":
                     except Exception as e_json:
                         st.error("Mesin gagal menyusun materi. Silakan klik tombol analisis sekali lagi.")
 
-    if 'data_hasil' in st.session_state:
-        data = st.session_state['data_hasil']
-        st.write("---")
+# --- MENU 2: TELUSURI URL WEBSITE (FITUR BARU) ---
+elif menu == "🌐 Telusuri URL Website":
+    st.markdown("<h1 class='judul-gradasi'>Penjelajah Web Materi</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 18px; color: #555;'>Masukkan tautan (URL) dari situs web atau artikel edukasi di internet untuk dibaca dan dirangkum langsung.</p>", unsafe_allow_html=True)
+    st.write("---")
+    
+    url_input = st.text_input("🔗 Masukkan Tautan Website (Contoh: https://id.wikipedia.org/wiki/...)", placeholder="https://...")
+    
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        btn_tarik = st.button("📥 Tarik & Baca Teks Web", use_container_width=True)
+    with col_btn2:
+        btn_rangkum_url = st.button("🚀 Tarik & Rangkum Jadi Kuis", use_container_width=True)
         
-        c1, c2 = st.columns([3, 1])
-        with c1:
-            st.markdown(f"<h2 style='color: #2c3e50;'>📚 {data.get('topik_utama', 'Materi')}</h2>", unsafe_allow_html=True)
-        with c2:
-            if st.button("💾 Simpan ke Perpustakaan"):
-                simpan_ke_csv(data.get('topik_utama', 'Ringkasan'), json.dumps(data))
-                st.toast('Tersimpan dengan aman di Cloud!', icon='☁️')
-
-        st.markdown("<h3 style='color: #764ba2;'>🧠 Fase 1: Pahami & Hafalkan</h3>", unsafe_allow_html=True)
-        for idx, item in enumerate(data.get('ringkasan', [])):
-            with st.expander(f"Topik {idx+1}: {item['topik']}", expanded=True):
-                st.markdown(f"<p style='font-size: 16px; line-height: 1.6;'>{item['penjelasan']}</p>", unsafe_allow_html=True)
-                st.markdown(f"<div class='jembatan-keledai'>💡 <b>Jembatan Keledai:</b><br>{item['jembatan_keledai']}</div>", unsafe_allow_html=True)
+    if btn_tarik or btn_rangkum_url:
+        if not url_input:
+            st.warning("⚠️ Masukkan URL tautan website terlebih dahulu!")
+        else:
+            with st.spinner("🌐 Menghubungkan ke server situs web..."):
+                hasil_scrape = ambil_teks_dari_url(url_input)
                 
-        st.write("---")
-        st.markdown("<h3 style='color: #FF416C;'>🎯 Fase 2: Kuis Ujian Akhir</h3>", unsafe_allow_html=True)
+            if hasil_scrape.startswith("ERROR:"):
+                st.error(f"❌ Gagal mengambil konten dari URL tersebut. Pastikan link valid dan dapat diakses publik. Detail: {hasil_scrape}")
+            else:
+                st.success("✅ Konten website berhasil ditarik!")
+                
+                if btn_tarik:
+                    st.markdown("### 📄 Isi Teks Mentah dari Website:")
+                    st.text_area("Teks Artikel", hasil_scrape[:5000] + ("..." if len(hasil_scrape) > 5000 else ""), height=300)
+                    st.info("💡 Anda bisa menyalin teks di atas atau langsung beralih ke tombol 'Tarik & Rangkum Jadi Kuis' untuk membuatnya interaktif.")
+                    
+                elif btn_rangkum_url:
+                    if not api_key_rahasia:
+                        st.error("⚠️ Sistem terkunci. Cek pengaturan Secrets kamu.")
+                    else:
+                        genai.configure(api_key=api_key_rahasia)
+                        prompt_url = f"""
+                        Bertindaklah sebagai asisten guru paling jenius.
+                        Berikut adalah teks materi yang diambil langsung dari sebuah halaman web:
+                        {hasil_scrape[:15000]}
+                        
+                        Tugas WAJIB:
+                        1. "topik_utama": Buat judul super menarik dari keseluruhan materi web ini.
+                        2. "ringkasan": Ekstrak SEMUA konsep TANPA ADA YANG TERLEWAT. Buat sangat detail dan rapi. Setiap topik WAJIB punya "penjelasan" panjang, dan "jembatan_keledai" (singkatan atau kalimat lucu untuk menghafal).
+                        3. "kuis": Buat kuis pilihan ganda. WAJIB MINIMAL 15 SOAL komprehensif, dengan 4 "opsi" (A/B/C/D), "jawaban_benar", dan "pembahasan".
+
+                        KEMBALIKAN OUTPUT HANYA FORMAT JSON MURNI:
+                        {{"topik_utama": "...", "ringkasan": [{{"topik": "...", "penjelasan": "...", "jembatan_keledai": "..."}}], "kuis": [{{"pertanyaan": "...", "opsi": ["..."], "jawaban_benar": "...", "pembahasan": "..."}}]}}
+                        """
+                        with st.spinner("⏳ Menganalisis dan menyusun modul dari internet..."):
+                            try:
+                                model_ai = genai.GenerativeModel("gemini-3.1-pro-preview")
+                                respons = model_ai.generate_content(prompt_url)
+                                teks_raw = respons.text
+                                idx_start = teks_raw.find('{')
+                                idx_end = teks_raw.rfind('}')
+                                
+                                if idx_start != -1 and idx_end != -1:
+                                    data_ai = json.loads(teks_raw[idx_start:idx_end+1])
+                                    st.session_state['data_hasil'] = data_ai
+                                    st.session_state['skor'] = 0
+                                    st.balloons()
+                                    st.success("✨ Modul dari Web Siap! Silakan gulir ke bawah untuk melihat hasil ringkasan dan kuis.")
+                            except Exception as e:
+                                st.error(f"Gagal memproses web via AI: {e}")
+
+# --- TAMPILAN HASIL UTAMA (RINGKASAN & KUIS) ---
+if 'data_hasil' in st.session_state and menu in ["✨ Papan Belajar Utama", "🌐 Telusuri URL Website"]:
+    data = st.session_state['data_hasil']
+    st.write("---")
+    
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        st.markdown(f"<h2 style='color: #2c3e50;'>📚 {data.get('topik_utama', 'Materi')}</h2>", unsafe_allow_html=True)
+    with c2:
+        if st.button("💾 Simpan ke Perpustakaan"):
+            simpan_ke_csv(data.get('topik_utama', 'Ringkasan'), json.dumps(data))
+            st.toast('Tersimpan dengan aman di Cloud!', icon='☁️')
+
+    st.markdown("<h3 style='color: #764ba2;'>🧠 Fase 1: Pahami & Hafalkan</h3>", unsafe_allow_html=True)
+    for idx, item in enumerate(data.get('ringkasan', [])):
+        with st.expander(f"Topik {idx+1}: {item['topik']}", expanded=True):
+            st.markdown(f"<p style='font-size: 16px; line-height: 1.6;'>{item['penjelasan']}</p>", unsafe_allow_html=True)
+            st.markdown(f"<div class='jembatan-keledai'>💡 <b>Jembatan Keledai:</b><br>{item['jembatan_keledai']}</div>", unsafe_allow_html=True)
+            
+    st.write("---")
+    st.markdown("<h3 style='color: #FF416C;'>🎯 Fase 2: Kuis Ujian Akhir</h3>", unsafe_allow_html=True)
+    
+    with st.form("form_kuis"):
+        jawaban_user = {}
+        for i, soal in enumerate(data.get('kuis', [])):
+            st.markdown(f"**Soal {i+1} | {soal['pertanyaan']}**")
+            jawaban_user[i] = st.radio(f"Pilih jawaban soal {i+1}:", soal['opsi'], key=f"soal_{i}", label_visibility="collapsed")
+            st.write("")
         
-        with st.form("form_kuis"):
-            jawaban_user = {}
-            for i, soal in enumerate(data.get('kuis', [])):
-                st.markdown(f"**Soal {i+1} | {soal['pertanyaan']}**")
-                jawaban_user[i] = st.radio(f"Pilih jawaban soal {i+1}:", soal['opsi'], key=f"soal_{i}", label_visibility="collapsed")
-                st.write("")
-            
-            submitted = st.form_submit_button("Kumpulkan & Cek Nilai 📝")
-            if submitted:
-                benar = sum(1 for i, soal in enumerate(data.get('kuis', [])) if jawaban_user[i] == soal['jawaban_benar'])
-                st.session_state['skor'] = int((benar / len(data['kuis'])) * 100)
-                st.session_state['jawaban_terkirim'] = True
+        submitted = st.form_submit_button("Kumpulkan & Cek Nilai 📝")
+        if submitted:
+            benar = sum(1 for i, soal in enumerate(data.get('kuis', [])) if jawaban_user[i] == soal['jawaban_benar'])
+            st.session_state['skor'] = int((benar / len(data['kuis'])) * 100)
+            st.session_state['jawaban_terkirim'] = True
 
-        if st.session_state.get('jawaban_terkirim', False):
-            skor = st.session_state['skor']
-            warna_skor = "#27ae60" if skor >= 75 else "#e74c3c"
-            
-            st.markdown(f"""
-            <div style='text-align: center; padding: 20px; background-color: #f8f9fa; border-radius: 15px; margin-top: 20px;'>
-                <h1 style='color: {warna_skor}; font-size: 4rem; margin: 0;'>{skor}</h1>
-                <p style='font-size: 1.2rem; color: #555;'>SKOR AKHIR KAMU</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.write("### Pembahasan Detail:")
-            for i, soal in enumerate(data.get('kuis', [])):
-                if jawaban_user[i] == soal['jawaban_benar']:
-                    st.success(f"**✅ Soal {i+1} | BENAR**\n\n{soal['pembahasan']}")
-                else:
-                    st.error(f"**❌ Soal {i+1} | SALAH** (Kunci: {soal['jawaban_benar']})\n\n{soal['pembahasan']}")
+    if st.session_state.get('jawaban_terkirim', False):
+        skor = st.session_state['skor']
+        warna_skor = "#27ae60" if skor >= 75 else "#e74c3c"
+        
+        st.markdown(f"""
+        <div style='text-align: center; padding: 20px; background-color: #f8f9fa; border-radius: 15px; margin-top: 20px;'>
+            <h1 style='color: {warna_skor}; font-size: 4rem; margin: 0;'>{skor}</h1>
+            <p style='font-size: 1.2rem; color: #555;'>SKOR AKHIR KAMU</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.write("### Pembahasan Detail:")
+        for i, soal in enumerate(data.get('kuis', [])):
+            if jawaban_user[i] == soal['jawaban_benar']:
+                st.success(f"**✅ Soal {i+1} | BENAR**\n\n{soal['pembahasan']}")
+            else:
+                st.error(f"**❌ Soal {i+1} | SALAH** (Kunci: {soal['jawaban_benar']})\n\n{soal['pembahasan']}")
 
-# --- MENU 2: RIWAYAT ---
+# --- MENU 3: PERPUSTAKAAN RIWAYAT ---
 elif menu == "📚 Perpustakaan Riwayat":
     st.markdown("<h1 class='judul-gradasi'>Perpustakaan Cloud</h1>", unsafe_allow_html=True)
     st.markdown("<p style='font-size: 18px; color: #555;'>Buka kembali catatan dan kuis lama yang pernah kamu simpan.</p>", unsafe_allow_html=True)
