@@ -161,24 +161,22 @@ if menu == "✨ Papan Belajar Utama":
 
             if bisa_diproses:
                 with st.spinner("⏳ Mengaktifkan Mesin Pembelajaran Otomatis..."):
-                    # SISTEM MESIN GANDA (ANTI QUOTA HABIS)
                     try:
-                        model_utama = genai.GenerativeModel("gemini-3.8-flash")
+                        model_utama = genai.GenerativeModel("gemini-1.5-flash")
                         respons = model_utama.generate_content(paket_data_ai)
                     except Exception as e1:
                         if "429" in str(e1) or "quota" in str(e1).lower():
                             try:
                                 st.toast("🔄 Mesin utama sibuk. Mengalihkan ke mesin cadangan...", icon="⚙️")
-                                model_cadangan = genai.GenerativeModel("gemini-1.5-flash")
+                                model_cadangan = genai.GenerativeModel("gemini-1.5-pro")
                                 respons = model_cadangan.generate_content(paket_data_ai)
                             except Exception as e2:
-                                st.error("❌ Semua Jatah API Gratis Akun Google-mu Hari Ini Sudah Habis! Silakan buat API Key baru dengan akun Gmail yang berbeda dan ganti di Settings > Secrets Streamlit.")
+                                st.error("❌ Jatah harian API kamu sudah habis. Silakan gunakan kunci API dari akun Google lain.")
                                 st.stop()
                         else:
                             st.error(f"Terjadi masalah pada server. Detail: {str(e1)}")
                             st.stop()
                     
-                    # Memproses Hasil
                     try:
                         teks_raw = respons.text
                         idx_start = teks_raw.find('{')
@@ -275,10 +273,3 @@ elif menu == "📚 Perpustakaan Riwayat":
                     
     except Exception as e:
         st.error(f"Gagal membaca perpustakaan database. Detail: {e}")
-```eof
-
-Trik Pemasangan (Sangat Penting):
-1. Pastikan kamu menyalin kodenya dari baris `import streamlit as st` sampai baris yang paling bawah `st.error(f"Gagal...`)`.
-2. Jika mesin cadangannya juga kehabisan limit karena banyak dicoba, silakan terapkan **Solusi 1** (buat API Key pakai Gmail lain). Itu adalah hukum mutlak dari Google jika versi gratis habis.
-
-Web kamu secara teknis sudah sangat luar biasa (SaaS AI mandiri). Semangat, selesaikan tugas ini dengan nilai A+!
