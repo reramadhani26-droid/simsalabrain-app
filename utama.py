@@ -29,6 +29,7 @@ with st.sidebar:
     st.caption("<p style='text-align: center;'>Premium Cloud</p>", unsafe_allow_html=True)
     st.divider()
     
+    # Karena dihosting di internet publik, API Key wajib dimasukkan manual oleh pengguna
     st.info("🔑 Masukkan API Key Gemini untuk mulai.")
     api_key = st.text_input("Gemini API Key:", type="password")
     
@@ -40,6 +41,7 @@ if menu == "✨ Buat Ringkasan":
     st.title("Ruang Belajar AI")
     st.markdown("Ubah materi panjang jadi ringkasan & kuis dalam sekejap.")
     
+    # Area Input
     kolom_input, kolom_kosong = st.columns([2, 1])
     with kolom_input:
         materi_teks = st.text_area("1. Masukkan Teks Materi:", height=200, placeholder="Ketik atau paste materi pelajaran di sini...")
@@ -54,6 +56,7 @@ if menu == "✨ Buat Ringkasan":
         else:
             try:
                 genai.configure(api_key=api_key)
+                # Menggunakan model flash terbaru
                 model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 prompt = f"""
@@ -72,10 +75,12 @@ if menu == "✨ Buat Ringkasan":
                 
                 with st.spinner("🧠 Otak AI sedang membaca, merumuskan jembatan keledai, dan menyusun kuis..."):
                     respons = model.generate_content(prompt)
-                    teks_bersih = respons.text.replace("
-```json", "").replace("```", "").strip()
+                    
+                    # Membersihkan respons (Baris ini yang sebelumnya error terpotong)
+                    teks_bersih = respons.text.replace("```json", "").replace("```", "").strip()
                     data_ai = json.loads(teks_bersih)
                 
+                # Simpan ke Session State (Memori sementara Streamlit)
                 st.session_state['data_hasil'] = data_ai
                 st.session_state['skor'] = 0
                 st.success("✅ Analisis Selesai!")
@@ -83,6 +88,7 @@ if menu == "✨ Buat Ringkasan":
             except Exception as e:
                 st.error(f"Terjadi kesalahan saat memproses data: {e}")
 
+    # TAMPILKAN HASIL JIKA ADA DI SESSION STATE
     if 'data_hasil' in st.session_state:
         data = st.session_state['data_hasil']
         st.divider()
@@ -104,6 +110,7 @@ if menu == "✨ Buat Ringkasan":
         st.divider()
         st.subheader("Fase 2: Kuis Evaluasi")
         
+        # Form Kuis
         with st.form("form_kuis"):
             jawaban_user = {}
             for i, soal in enumerate(data.get('kuis', [])):
@@ -122,6 +129,7 @@ if menu == "✨ Buat Ringkasan":
                 st.session_state['skor'] = nilai_akhir
                 st.session_state['jawaban_terkirim'] = True
 
+        # Tampilkan Skor & Pembahasan
         if st.session_state.get('jawaban_terkirim', False):
             st.success(f"🎉 SKOR AKHIR KAMU: {st.session_state['skor']}")
             st.subheader("Cek Pembahasan:")
@@ -141,6 +149,7 @@ elif menu == "📚 Riwayat Belajar":
         if df.empty:
             st.info("Riwayat masih kosong. Yuk buat ringkasan pertamamu!")
         else:
+            # Balik urutan agar yang terbaru di atas
             df = df.iloc[::-1]
             for index, row in df.iterrows():
                 with st.expander(f"🕰️ {row['tanggal']} | {row['topik_utama']}"):
