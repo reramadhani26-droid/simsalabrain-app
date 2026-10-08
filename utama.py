@@ -162,11 +162,11 @@ if menu == "✨ Papan Belajar Utama":
             if bisa_diproses:
                 with st.spinner("⏳ Mengaktifkan Mesin Pembelajaran Otomatis..."):
                     
-                    # DAFTAR MESIN STABIL TERBARU (OTOMATIS PILIH YANG AKTIF)
+                    # DAFTAR MESIN TERBARU (OTOMATIS PILIH YANG AKTIF)
                     daftar_mesin = [
-                        "models/gemini-2.5-flash",
-                        "models/gemini-1.5-flash",
-                        "models/gemini-2.5-pro"
+                        "gemini-3.1-pro-preview",
+                        "gemini-3-flash-preview",
+                        "gemini-3.8-flash"
                     ]
                     
                     respons = None
@@ -182,7 +182,7 @@ if menu == "✨ Papan Belajar Utama":
                             continue 
                     
                     if not respons:
-                        st.error(f"❌ Server AI Menolak Permintaan: {error_terakhir}. Pastikan API Key valid dan coba buat API Key baru jika kuota harian habis.")
+                        st.error(f"❌ Server AI Menolak Permintaan: {error_terakhir}. Pastikan API Key valid.")
                         st.stop()
                     
                     # Memproses Hasil JSON
