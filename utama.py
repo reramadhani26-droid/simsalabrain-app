@@ -162,11 +162,11 @@ if menu == "✨ Papan Belajar Utama":
             if bisa_diproses:
                 with st.spinner("⏳ Mengaktifkan Mesin Pembelajaran Otomatis..."):
                     
-                    # LOGIKA ANTI-LIMIT & ANTI-404 (SISTEM FALLBACK)
+                    # DAFTAR MESIN STABIL TERBARU (OTOMATIS PILIH YANG AKTIF)
                     daftar_mesin = [
-                        "models/gemini-1.5-pro",
-                        "models/gemini-pro",
-                        "models/gemini-1.0-pro"
+                        "models/gemini-2.5-flash",
+                        "models/gemini-1.5-flash",
+                        "models/gemini-2.5-pro"
                     ]
                     
                     respons = None
@@ -176,16 +176,13 @@ if menu == "✨ Papan Belajar Utama":
                         try:
                             model_ai = genai.GenerativeModel(nama_mesin)
                             respons = model_ai.generate_content(paket_data_ai)
-                            break # Jika berhasil, keluar dari loop
+                            break 
                         except Exception as e:
                             error_terakhir = str(e)
-                            continue # Coba mesin selanjutnya jika gagal
+                            continue 
                     
                     if not respons:
-                        if "429" in error_terakhir or "quota" in error_terakhir.lower():
-                            st.error("❌ Semua Kuota Harian dari Google Habis! Google membatasi penggunaan gratis harian. Solusi: Ganti API Key di Streamlit Secrets dengan API Key dari akun Google yang berbeda.")
-                        else:
-                            st.error(f"❌ Server AI Menolak Permintaan: {error_terakhir}. Pastikan API Key valid dan Google mengizinkan akses model.")
+                        st.error(f"❌ Server AI Menolak Permintaan: {error_terakhir}. Pastikan API Key valid dan coba buat API Key baru jika kuota harian habis.")
                         st.stop()
                     
                     # Memproses Hasil JSON
