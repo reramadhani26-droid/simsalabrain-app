@@ -4,7 +4,6 @@ import pandas as pd
 import json
 import os
 from datetime import datetime
-import bcrypt
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="SimSalaBrain Pro", page_icon="🚀", layout="wide")
@@ -62,84 +61,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- INISIALISASI DATABASE & AKUN PENGGUNA ---
-DB_RIWAYAT = "riwayat.csv"
-DB_USER = "users_db.csv"
+# --- INISIALISASI DATABASE CSV ---
+DB_FILE = "riwayat.csv"
+if not os.path.exists(DB_FILE):
+    pd.DataFrame(columns=["tanggal", "topik_utama", "data_json"]).to_csv(DB_FILE, index=False)
 
-if not os.path.exists(DB_RIWAYAT):
-    pd.DataFrame(columns=["email", "tanggal", "topik_utama", "data_json"]).to_csv(DB_RIWAYAT, index=False)
-
-if not os.path.exists(DB_USER):
-    pd.DataFrame(columns=["email", "password_hash"]).to_csv(DB_USER, index=False)
-
-def simpan_ke_csv(email_user, topik, data_json_str):
-    df = pd.read_csv(DB_RIWAYAT)
+def simpan_ke_csv(topik, data_json_str):
+    df = pd.read_csv(DB_FILE)
     waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    baris_baru = pd.DataFrame([{"email": email_user, "tanggal": waktu_sekarang, "topik_utama": topik, "data_json": data_json_str}])
+    baris_baru = pd.DataFrame([{"tanggal": waktu_sekarang, "topik_utama": topik, "data_json": data_json_str}])
     df = pd.concat([df, baris_baru], ignore_index=True)
-    df.to_csv(DB_RIWAYAT, index=False)
+    df.to_csv(DB_FILE, index=False)
     return True
-
-# --- SISTEM AUTENTIKASI (LOGIN & DAFTAR) ---
-if 'logged_in' not in st.session_state:
-    st.session_state['logged_in'] = False
-    st.session_state['user_email'] = ""
-
-if not st.session_state['logged_in']:
-    st.markdown("<h1 style='text-align: center;' class='judul-gradasi'>🚀 SimSalaBrain Pro</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #555; font-size: 18px;'>Silakan masuk atau daftar akun menggunakan email pribadi Anda.</p>", unsafe_allow_html=True)
-    
-    col_l, col_r = st.columns([1, 1], gap="large")
-    
-    with col_l:
-        st.markdown("### 🔑 Masuk ke Akun")
-        with st.form("form_login"):
-            email_login = st.text_input("Email Pribadi")
-            pass_login = st.text_input("Kata Sandi", type="password")
-            btn_login = st.form_submit_button("Masuk Sekarang 🚀", use_container_width=True)
-            
-            if btn_login:
-                if not email_login or not pass_login:
-                    st.error("Isi email dan kata sandi dengan lengkap!")
-                else:
-                    df_u = pd.read_csv(DB_USER)
-                    user_row = df_u[df_u['email'] == email_login]
-                    if not user_row.empty:
-                        stored_hash = user_row.iloc[0]['password_hash'].encode('utf-8')
-                        if bcrypt.checkpw(pass_login.encode('utf-8'), stored_hash):
-                            st.session_state['logged_in'] = True
-                            st.session_state['user_email'] = email_login
-                            st.success("Login Berhasil! Memuat aplikasi...")
-                            st.rerun()
-                        else:
-                            st.error("Kata sandi salah!")
-                    else:
-                        st.error("Email belum terdaftar. Silakan daftar terlebih dahulu.")
-                        
-    with col_r:
-        st.markdown("### 📝 Daftar Akun Baru")
-        with st.form("form_register"):
-            email_reg = st.text_input("Email Baru")
-            pass_reg = st.text_input("Buat Kata Sandi", type="password")
-            btn_reg = st.form_submit_button("Daftar Akun 🌟", use_container_width=True)
-            
-            if btn_reg:
-                if not email_reg or not pass_reg:
-                    st.error("Isi formulir pendaftaran dengan lengkap!")
-                else:
-                    df_u = pd.read_csv(DB_USER)
-                    if email_reg in df_u['email'].values:
-                        st.warning("Email ini sudah terdaftar. Silakan langsung masuk.")
-                    else:
-                        hashed = bcrypt.hashpw(pass_reg.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-                        baru = pd.DataFrame([{"email": email_reg, "password_hash": hashed}])
-                        df_u = pd.concat([df_u, baru], ignore_index=True)
-                        df_u.to_csv(DB_USER, index=False)
-                        st.success("Pendaftaran berhasil! Silakan login di sebelah kiri.")
-    st.stop()
-
-# --- JIKA SUDAH LOGIN ---
-current_user = st.session_state['user_email']
 
 # --- API KEY DARI SECRETS ---
 try:
@@ -149,14 +82,14 @@ except:
 
 # --- SIDEBAR NAVIGASI ---
 with st.sidebar:
-    st.markdown(f"<h1 style='text-align: center; color: #764ba2;'>🚀 SimSalaBrain</h1>", unsafe_allow_html=True)
-    st.caption(f"<p style='text-align: center; font-weight: bold;'>Login sebagai:<br>{current_user}</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #764ba2;'>🚀 SimSalaBrain</h1>", unsafe_allow_html=True)
+    st.caption("<p style='text-align: center; font-weight: bold;'>Education Cloud Pro</p>", unsafe_allow_html=True)
     st.divider()
     
-    if st.button("🚪 Keluar Akun", use_container_width=True):
-        st.session_state['logged_in'] = False
-        st.session_state['user_email'] = ""
-        st.rerun()
+    if api_key_rahasia:
+        st.success("🔒 Sistem Enkripsi Cloud Aktif.")
+    else:
+        st.error("⚠️ Brankas API Key belum terisi di Settings.")
         
     st.divider()
     menu = st.radio("Mulai Petualangan:", ["✨ Papan Belajar Utama", "📚 Perpustakaan Riwayat"])
@@ -233,9 +166,9 @@ if menu == "✨ Papan Belajar Utama":
             if bisa_diproses:
                 with st.spinner("⏳ Mengaktifkan Mesin Pembelajaran Otomatis..."):
                     daftar_mesin = [
-                        "gemini-3.1-pro-preview",
-                        "gemini-3-flash-preview",
-                        "gemini-3.8-flash"
+                        "gemini-1.5-pro",
+                        "gemini-pro",
+                        "gemini-1.0-pro"
                     ]
                     
                     respons = None
@@ -281,7 +214,7 @@ if menu == "✨ Papan Belajar Utama":
             st.markdown(f"<h2 style='color: #2c3e50;'>📚 {data.get('topik_utama', 'Materi')}</h2>", unsafe_allow_html=True)
         with c2:
             if st.button("💾 Simpan ke Perpustakaan"):
-                simpan_ke_csv(current_user, data.get('topik_utama', 'Ringkasan'), json.dumps(data))
+                simpan_ke_csv(data.get('topik_utama', 'Ringkasan'), json.dumps(data))
                 st.toast('Tersimpan dengan aman di Cloud!', icon='☁️')
 
         st.markdown("<h3 style='color: #764ba2;'>🧠 Fase 1: Pahami & Hafalkan</h3>", unsafe_allow_html=True)
@@ -327,18 +260,16 @@ if menu == "✨ Papan Belajar Utama":
 # --- MENU 2: RIWAYAT ---
 elif menu == "📚 Perpustakaan Riwayat":
     st.markdown("<h1 class='judul-gradasi'>Perpustakaan Cloud</h1>", unsafe_allow_html=True)
-    st.markdown(f"<p style='font-size: 18px; color: #555;'>Riwayat belajar milik akun: <b>{current_user}</b></p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 18px; color: #555;'>Buka kembali catatan dan kuis lama yang pernah kamu simpan.</p>", unsafe_allow_html=True)
     st.write("---")
     
     try:
-        df = pd.read_csv(DB_RIWAYAT)
-        df_user = df[df['email'] == current_user]
-        
-        if df_user.empty:
-            st.info("📦 Perpustakaan kamu masih kosong. Ayo mulai meringkas materi pertamamu!")
+        df = pd.read_csv(DB_FILE)
+        if df.empty:
+            st.info("📦 Perpustakaan masih kosong. Ayo mulai meringkas materi pertamamu!")
         else:
-            df_user = df_user.iloc[::-1]
-            for index, row in df_user.iterrows():
+            df = df.iloc[::-1]
+            for index, row in df.iterrows():
                 with st.expander(f"🕰️ {row['tanggal']} | {row['topik_utama']}"):
                     data_riwayat = json.loads(row['data_json'])
                     
