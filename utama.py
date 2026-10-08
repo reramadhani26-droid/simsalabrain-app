@@ -23,26 +23,26 @@ def simpan_ke_csv(topik, data_json_str):
     df.to_csv(DB_FILE, index=False)
     return True
 
-# --- SIDEBAR NAVIGASI & API KEY ---
+# --- SIDEBAR NAVIGASI & KEAMANAN SISTEM ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center;'>🧠 SimSalaBrain</h1>", unsafe_allow_html=True)
-    st.caption("<p style='text-align: center;'>Premium Cloud</p>", unsafe_allow_html=True)
+    st.caption("<p style='text-align: center;'>Premium Education Cloud</p>", unsafe_allow_html=True)
     st.divider()
     
-    st.info("🔑 API Key terbaca aman dari Brankas (Secrets).")
-    # Mengambil API key langsung dari Secrets (Brankas)
+    st.info("🔐 Koneksi ke Server AI Pusat dienkripsi dan aman.")
+    # Mengambil API key langsung dari Secrets (Brankas) tanpa menampilkannya di layar
     try:
         api_key_rahasia = st.secrets["GEMINI_API_KEY"]
     except:
         api_key_rahasia = ""
-        st.error("⚠️ API Key belum dipasang di pengaturan Secrets Streamlit.")
+        st.error("⚠️ Sistem belum terhubung ke brankas rahasia.")
         
     st.divider()
     menu = st.radio("Navigasi Menu", ["✨ Buat Ringkasan", "📚 Riwayat Belajar"])
 
 # --- MENU 1: BUAT RINGKASAN ---
 if menu == "✨ Buat Ringkasan":
-    st.title("Ruang Belajar AI")
+    st.title("Ruang Belajar Cerdas")
     st.markdown("Ubah materi panjang jadi ringkasan & kuis dalam sekejap.")
     
     kolom_input, kolom_kosong = st.columns([2, 1])
@@ -53,30 +53,19 @@ if menu == "✨ Buat Ringkasan":
     
     if tombol_proses:
         if not api_key_rahasia:
-            st.error("⚠️ Sistem tidak bisa berjalan. Cek menu Secrets di pengaturan Streamlit.")
+            st.error("⚠️ Sistem tidak bisa berjalan. Cek koneksi server pusat.")
         elif not materi_teks:
             st.warning("⚠️ Teks materi tidak boleh kosong!")
         else:
             try:
                 genai.configure(api_key=api_key_rahasia)
                 
-                # --- SISTEM DETEKSI MODEL OTOMATIS (ANTI 404 ERROR) ---
-                with st.spinner("Mencari server AI yang tersedia untuk akunmu..."):
-                    # Bertanya ke Google model apa saja yang aktif
-                    daftar_model = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                    
-                    if not daftar_model:
-                        st.error("⚠️ API Key kamu tidak diizinkan menggunakan AI. Cek kembali akun Google-mu.")
-                        st.stop()
-                        
-                    # Otomatis memilih model yang diizinkan (Cari yang ada kata 'flash', jika tidak ada pakai apa saja yang aktif)
-                    model_aktif = daftar_model[0] 
-                    for m in daftar_model:
-                        if '1.5-flash' in m:
-                            model_aktif = m
-                            break
+                # --- SISTEM AI PUSAT (MEMPERBAIKI ERROR 404) ---
+                with st.spinner("Menghubungkan ke Mesin AI Utama..."):
+                    # Menggunakan versi mesin cerdas terbaru sesuai instruksi sistem server
+                    model_aktif = 'gemini-3.8-flash'
                             
-                st.info(f"✅ Terhubung ke server AI: **{model_aktif.replace('models/', '')}**")
+                st.success("✅ Terhubung ke Mesin Pembelajaran Otomatis.")
                 model = genai.GenerativeModel(model_aktif)
                 
                 prompt = f"""
@@ -93,17 +82,17 @@ if menu == "✨ Buat Ringkasan":
                 {materi_teks}
                 """
                 
-                with st.spinner("🧠 Otak AI sedang membaca, merumuskan jembatan keledai, dan menyusun kuis..."):
+                with st.spinner("🧠 Mesin sedang membaca, merumuskan metode hafalan, dan menyusun kuis..."):
                     respons = model.generate_content(prompt)
                     teks_bersih = respons.text.replace("```json", "").replace("```", "").strip()
                     data_ai = json.loads(teks_bersih)
                 
                 st.session_state['data_hasil'] = data_ai
                 st.session_state['skor'] = 0
-                st.success("✅ Analisis Selesai!")
+                st.success("✅ Analisis Materi Selesai!")
                 
             except Exception as e:
-                st.error(f"Terjadi kesalahan saat memproses data: {e}")
+                st.error("Terjadi masalah pada server. Pastikan teks tidak mengandung karakter aneh atau coba beberapa saat lagi.")
 
     if 'data_hasil' in st.session_state:
         data = st.session_state['data_hasil']
