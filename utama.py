@@ -4,14 +4,14 @@ import pandas as pd
 import json
 import os
 from datetime import datetime
---- KONFIGURASI HALAMAN ---
+#--- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="SimSalaBrain Premium", page_icon="🧠", layout="wide")
---- INISIALISASI DATABASE CSV ---
+#--- INISIALISASI DATABASE CSV ---
 DB_FILE = "riwayat.csv"
 if not os.path.exists(DB_FILE):
 df_awal = pd.DataFrame(columns=["tanggal", "topik_utama", "data_json"])
 df_awal.to_csv(DB_FILE, index=False)
---- FUNGSI SIMPAN KE DATABASE ---
+#--- FUNGSI SIMPAN KE DATABASE ---
 def simpan_ke_csv(topik, data_json_str):
 df = pd.read_csv(DB_FILE)
 waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -19,7 +19,7 @@ baris_baru = pd.DataFrame([{"tanggal": waktu_sekarang, "topik_utama": topik, "da
 df = pd.concat([df, baris_baru], ignore_index=True)
 df.to_csv(DB_FILE, index=False)
 return True
---- SIDEBAR NAVIGASI & API KEY ---
+#--- SIDEBAR NAVIGASI & API KEY ---
 with st.sidebar:
 st.markdown("<h1 style='text-align: center;'>🧠 SimSalaBrain</h1>", unsafe_allow_html=True)
 st.caption("<p style='text-align: center;'>Premium Cloud</p>", unsafe_allow_html=True)
