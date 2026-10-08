@@ -5,7 +5,6 @@ import json
 import os
 from datetime import datetime
 import urllib.request
-import urllib.parse
 from html.parser import HTMLParser
 
 # --- KONFIGURASI HALAMAN ---
@@ -242,7 +241,7 @@ if menu == "✨ Papan Belajar Utama":
                     except Exception as e_json:
                         st.error("Mesin gagal menyusun materi. Silakan klik tombol analisis sekali lagi.")
 
-# --- MENU 2: REKOMENDASI & TELUSURI WEB BERBASIS TOPIK (FITUR BARU) ---
+# --- MENU 2: REKOMENDASI & TELUSURI WEB BERBASIS TOPIK ---
 elif menu == "🔍 Rekomendasi & Telusuri Web":
     st.markdown("<h1 class='judul-gradasi'>Rekomendasi Materi Web</h1>", unsafe_allow_html=True)
     st.markdown("<p style='font-size: 18px; color: #555;'>Ketik materi atau topik yang ingin Anda pelajari. AI akan merekomendasikan situs web terbaik dan memberikan opsi untuk langsung merangkumnya!</p>", unsafe_allow_html=True)
@@ -301,7 +300,6 @@ elif menu == "🔍 Rekomendasi & Telusuri Web":
             </div>
             """, unsafe_allow_html=True)
             
-            # Tombol Interaktif untuk Merangkum Website Tersebut Otomatis
             col_lk, col_rk = st.columns([2, 1])
             with col_lk:
                 st.caption(f"Tautan: {rec['url']}")
@@ -310,7 +308,6 @@ elif menu == "🔍 Rekomendasi & Telusuri Web":
                     with st.spinner(f"📥 Mengambil teks dari {rec['nama_sumber']} dan menyusun modul..."):
                         teks_web = ambil_teks_dari_url(rec['url'])
                         if not teks_web or len(teks_web) < 100:
-                            # Fallback jika website melarang scraping otomatis
                             teks_web = f"Topik pembahasan dari {rec['nama_sumber']} mengenai {rec['deskripsi_singkat']} dengan fokus pada {st.session_state.get('topik_aktif', '')}."
                         
                         prompt_rangkum_situs = f"""
@@ -403,4 +400,8 @@ elif menu == "📚 Perpustakaan Riwayat":
     try:
         df = pd.read_csv(DB_FILE)
         if df.empty:
-            st.info("📦 Perpustakaan m
+            st.info("📦 Perpustakaan masih kosong. Ayo mulai meringkas materi pertamamu!")
+        else:
+            df = df.iloc[::-1]
+            for index, row in df.iterrows():
+                with st.expander(f"🕰️ {row
