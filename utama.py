@@ -300,4 +300,112 @@ elif menu == "🔍 Rekomendasi & Telusuri Web":
                         st.session_state['topik_aktif'] = topik_cari
                         st.success("✨ Rekomendasi website berhasil ditemukan!")
                     else:
-                        st.error("Gagal memuat format rekomendasi dari server
+                        st.error("Gagal memuat format rekomendasi dari server. Silakan coba klik sekali lagi.")
+                except Exception as e:
+                    if "429" in str(e) or "quota" in str(e).lower():
+                        st.error("❌ Kuota API Google harianmu habis. Gunakan API Key dari akun Gmail lain.")
+                    else:
+                        st.error(f"Terjadi kesalahan koneksi AI: {e}")
+
+    # Tampilkan Hasil Rekomendasi
+    if 'list_rekomendasi' in st.session_state:
+        st.write("---")
+        st.markdown(f"### 🌐 Hasil Rekomendasi untuk: *{st.session_state.get('topik_aktif', '')}*")
+        
+        for i, rec in enumerate(st.session_state['list_rekomendasi']):
+            st.markdown(f"""
+            <div class="card-rekomendasi">
+                <h4><b>{i+1}. {rec.get('nama_sumber', 'Situs Web')}</b></h4>
+                <p style="color: #64748b; font-size: 14px; margin-bottom: 8px;">{rec.get('deskripsi_singkat', '')}</p>
+                <a href="{rec.get('url', '#')}" target="_blank" style="color: #4f46e5; font-weight: bold; text-decoration: none;">🔗 Kunjungi Website Langsung ↗</a>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col_lk, col_rk = st.columns([2, 1])
+            with col_lk:
+                st.caption(f"Tautan: {rec.get('url', '')}")
+            with col_rk:
+                if st.button(f"🚀 Rangkum Website Ini #{i+1}", key=f"btn_rk_{i}"):
+                    if not api_key_rahasia:
+                        st.error("API Key kosong.")
+                    else:
+                        genai.configure(api_key=api_key_rahasia)
+                        with st.spinner(f"📥 Mengambil teks dari website dan menyusun modul..."):
+                            teks_web = ambil_teks_dari_url(rec.get('url', ''))
+                            if not teks_web or len(teks_web) < 150:
+                                teks_web = f"Tolong buatkan materi lengkap mengenai {st.session_state.get('topik_aktif', '')} berdasarkan sumber {rec.get('nama_sumber', '')}."
+                            
+                            prompt_rangkum_situs = f"""
+                            Bertindaklah sebagai asisten guru paling jenius.
+                            Berikut materi yang diambil dari web: {teks_web[:15000]}
+                            
+                            Tugas WAJIB:
+                            1. "topik_utama": Buat judul menarik.
+                            2. "ringkasan": Ekstrak SEMUA konsep. Setiap topik WAJIB punya "penjelasan" panjang, dan "jembatan_keledai" (singkatan atau kalimat lucu untuk menghafal).
+                            3. "kuis": Buat kuis pilihan ganda. WAJIB MINIMAL 10 SOAL komprehensif.
+                            
+                            ATURAN KUIS SANGAT PENTING: Nilai dari "jawaban_benar" HARUS SAMA PERSIS dengan teks opsi yang benar.
+
+                            KEMBALIKAN OUTPUT HANYA FORMAT JSON MURNI:
+                            {{"topik_utama": "...", "ringkasan": [{{"topik": "...", "penjelasan": "...", "jembatan_keledai": "..."}}], "kuis": [{{"pertanyaan": "...", "opsi": ["A", "B", "C", "D"], "jawaban_benar": "B", "pembahasan": "..."}}]}}
+                            """
+                            try:
+                                resp_web = panggil_ai_dengan_fallback([prompt_rangkum_situs])
+                                data_web = sanitize_json_response(resp_web.text)
+                                
+                                if data_web:
+                                    st.session_state['data_hasil'] = data_web
+                                    st.session_state['skor'] = 0
+                                    st.balloons()
+                                    st.success("✨ Modul Belajar Berhasil Disusun dari Website Tersebut! Gulir ke bawah untuk melihat hasil.")
+                                else:
+                                    st.error("Gagal menyusun format kuis. Coba klik lagi.")
+                            except Exception as err:
+                                if "429" in str(err) or "quota" in str(err).lower():
+                                     st.error("❌ Kuota API Google harianmu habis. Gunakan API Key baru.")
+                                else:
+                                    st.error(f"Gagal memproses situs web: {err}")
+
+# --- TAMPILAN HASIL UTAMA (RINGKASAN & KUIS) ---
+if 'data_hasil' in st.session_state and menu in ["✨ Papan Belajar Utama", "🔍 Rekomendasi & Telusuri Web"]:
+    data = st.session_state['data_hasil']
+    st.write("---")
+    
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        st.markdown(f"<h2 style='color: #2c3e50;'>📚 {data.get('topik_utama', 'Materi')}</h2>", unsafe_allow_html=True)
+    with c2:
+        if st.button("💾 Simpan ke Perpustakaan"):
+            simpan_ke_csv(data.get('topik_utama', 'Ringkasan'), json.dumps(data))
+            st.toast('Tersimpan dengan aman di Cloud!', icon='☁️')
+
+    st.markdown("<h3 style='color: #764ba2;'>🧠 Fase 1: Pahami & Hafalkan</h3>", unsafe_allow_html=True)
+    for idx, item in enumerate(data.get('ringkasan', [])):
+        with st.expander(f"Topik {idx+1}: {item.get('topik', 'Topik')}", expanded=True):
+            st.markdown(f"<p style='font-size: 16px; line-height: 1.6;'>{item.get('penjelasan', '')}</p>", unsafe_allow_html=True)
+            st.markdown(f"<div class='jembatan-keledai'>💡 <b>Jembatan Keledai:</b><br>{item.get('jembatan_keledai', '')}</div>", unsafe_allow_html=True)
+            
+    st.write("---")
+    st.markdown("<h3 style='color: #FF416C;'>🎯 Fase 2: Kuis Ujian Akhir</h3>", unsafe_allow_html=True)
+    
+    with st.form("form_kuis"):
+        jawaban_user = {}
+        for i, soal in enumerate(data.get('kuis', [])):
+            st.markdown(f"**Soal {i+1} | {soal.get('pertanyaan', '')}**")
+            opsi_list = [str(opt) for opt in soal.get('opsi', [])]
+            jawaban_user[i] = st.radio(f"Pilih jawaban soal {i+1}:", opsi_list, key=f"soal_{i}", label_visibility="collapsed")
+            st.write("")
+        
+        submitted = st.form_submit_button("Kumpulkan & Cek Nilai 📝")
+        if submitted:
+            benar = 0
+            for i, soal in enumerate(data.get('kuis', [])):
+                kunci = str(soal.get('jawaban_benar', '')).strip().lower()
+                jawab = str(jawaban_user[i]).strip().lower()
+                if jawab == kunci or kunci in jawab or jawab in kunci:
+                    benar += 1
+                    
+            st.session_state['skor'] = int((benar / max(1, len(data['kuis']))) * 100)
+            st.session_state['jawaban_terkirim'] = True
+
+    if st.session_state.get('jawaban_terkirim', False):
