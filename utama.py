@@ -115,57 +115,71 @@ if menu == "✨ Papan Belajar Utama":
         elif not materi_teks and file_unggahan is None:
             st.warning("⚠️ Masukkan materi (teks atau file) terlebih dahulu!")
         else:
-            try:
-                genai.configure(api_key=api_key_rahasia)
-                model = genai.GenerativeModel("gemini-3.8-flash")
-                
-                prompt_instruksi = """
-                Bertindaklah sebagai asisten guru paling jenius.
-                Tugas WAJIB dari materi ini:
-                1. "topik_utama": Buat judul super menarik dari keseluruhan materi.
-                2. "ringkasan": Ekstrak SEMUA konsep TANPA ADA YANG TERLEWAT. Buat sangat detail dan rapi. Setiap topik WAJIB punya "penjelasan" panjang, dan "jembatan_keledai" (singkatan atau kalimat lucu untuk menghafal).
-                3. "kuis": Buat kuis pilihan ganda. WAJIB MINIMAL 15 SOAL komprehensif, dengan 4 "opsi" (A/B/C/D), "jawaban_benar", dan "pembahasan".
+            genai.configure(api_key=api_key_rahasia)
+            
+            prompt_instruksi = """
+            Bertindaklah sebagai asisten guru paling jenius.
+            Tugas WAJIB dari materi ini:
+            1. "topik_utama": Buat judul super menarik dari keseluruhan materi.
+            2. "ringkasan": Ekstrak SEMUA konsep TANPA ADA YANG TERLEWAT. Buat sangat detail dan rapi. Setiap topik WAJIB punya "penjelasan" panjang, dan "jembatan_keledai" (singkatan atau kalimat lucu untuk menghafal).
+            3. "kuis": Buat kuis pilihan ganda. WAJIB MINIMAL 15 SOAL komprehensif, dengan 4 "opsi" (A/B/C/D), "jawaban_benar", dan "pembahasan".
 
-                KEMBALIKAN OUTPUT HANYA FORMAT JSON MURNI:
-                {"topik_utama": "...", "ringkasan": [{"topik": "...", "penjelasan": "...", "jembatan_keledai": "..."}], "kuis": [{"pertanyaan": "...", "opsi": ["..."], "jawaban_benar": "...", "pembahasan": "..."}]}
-                """
-                
-                paket_data_ai = [prompt_instruksi]
-                if materi_teks: paket_data_ai.append(f"\nTeks Materi:\n{materi_teks}")
-                
-                bisa_diproses = True
-                
-                if file_unggahan:
-                    ext = file_unggahan.name.split('.')[-1].lower()
-                    if ext in ['pdf', 'jpg', 'jpeg', 'png']:
-                        paket_data_ai.append({"mime_type": file_unggahan.type, "data": file_unggahan.getvalue()})
-                    elif ext == 'txt':
-                        paket_data_ai.append(f"\nIsi TXT:\n{file_unggahan.getvalue().decode('utf-8')}")
-                    elif ext == 'docx':
-                        try:
-                            import docx
-                            doc = docx.Document(file_unggahan)
-                            paket_data_ai.append("\nIsi Word:\n" + '\n'.join([p.text for p in doc.paragraphs]))
-                        except:
-                            st.error("Gagal membaca Word. Pastikan library python-docx terinstall.")
-                            bisa_diproses = False
-                    elif ext == 'pptx':
-                        try:
-                            from pptx import Presentation
-                            prs = Presentation(file_unggahan)
-                            teks_ppt = []
-                            for slide in prs.slides:
-                                for shape in slide.shapes:
-                                    if hasattr(shape, "text"): teks_ppt.append(shape.text)
-                            paket_data_ai.append("\nIsi PPT:\n" + '\n'.join(teks_ppt))
-                        except:
-                            st.error("Gagal membaca PPT. Pastikan library python-pptx terinstall.")
-                            bisa_diproses = False
+            KEMBALIKAN OUTPUT HANYA FORMAT JSON MURNI:
+            {"topik_utama": "...", "ringkasan": [{"topik": "...", "penjelasan": "...", "jembatan_keledai": "..."}], "kuis": [{"pertanyaan": "...", "opsi": ["..."], "jawaban_benar": "...", "pembahasan": "..."}]}
+            """
+            
+            paket_data_ai = [prompt_instruksi]
+            if materi_teks: paket_data_ai.append(f"\nTeks Materi:\n{materi_teks}")
+            
+            bisa_diproses = True
+            if file_unggahan:
+                ext = file_unggahan.name.split('.')[-1].lower()
+                if ext in ['pdf', 'jpg', 'jpeg', 'png']:
+                    paket_data_ai.append({"mime_type": file_unggahan.type, "data": file_unggahan.getvalue()})
+                elif ext == 'txt':
+                    paket_data_ai.append(f"\nIsi TXT:\n{file_unggahan.getvalue().decode('utf-8')}")
+                elif ext == 'docx':
+                    try:
+                        import docx
+                        doc = docx.Document(file_unggahan)
+                        paket_data_ai.append("\nIsi Word:\n" + '\n'.join([p.text for p in doc.paragraphs]))
+                    except:
+                        st.error("Gagal membaca Word. Pastikan python-docx terinstall.")
+                        bisa_diproses = False
+                elif ext == 'pptx':
+                    try:
+                        from pptx import Presentation
+                        prs = Presentation(file_unggahan)
+                        teks_ppt = []
+                        for slide in prs.slides:
+                            for shape in slide.shapes:
+                                if hasattr(shape, "text"): teks_ppt.append(shape.text)
+                        paket_data_ai.append("\nIsi PPT:\n" + '\n'.join(teks_ppt))
+                    except:
+                        st.error("Gagal membaca PPT. Pastikan python-pptx terinstall.")
+                        bisa_diproses = False
 
-                if bisa_diproses:
-                    with st.spinner("⏳ Mengaktifkan Mesin Pembelajaran Otomatis..."):
-                        respons = model.generate_content(paket_data_ai)
-                        
+            if bisa_diproses:
+                with st.spinner("⏳ Mengaktifkan Mesin Pembelajaran Otomatis..."):
+                    # SISTEM MESIN GANDA (ANTI QUOTA HABIS)
+                    try:
+                        model_utama = genai.GenerativeModel("gemini-3.8-flash")
+                        respons = model_utama.generate_content(paket_data_ai)
+                    except Exception as e1:
+                        if "429" in str(e1) or "quota" in str(e1).lower():
+                            try:
+                                st.toast("🔄 Mesin utama sibuk. Mengalihkan ke mesin cadangan...", icon="⚙️")
+                                model_cadangan = genai.GenerativeModel("gemini-1.5-flash")
+                                respons = model_cadangan.generate_content(paket_data_ai)
+                            except Exception as e2:
+                                st.error("❌ Semua Jatah API Gratis Akun Google-mu Hari Ini Sudah Habis! Silakan buat API Key baru dengan akun Gmail yang berbeda dan ganti di Settings > Secrets Streamlit.")
+                                st.stop()
+                        else:
+                            st.error(f"Terjadi masalah pada server. Detail: {str(e1)}")
+                            st.stop()
+                    
+                    # Memproses Hasil
+                    try:
                         teks_raw = respons.text
                         idx_start = teks_raw.find('{')
                         idx_end = teks_raw.rfind('}')
@@ -173,16 +187,15 @@ if menu == "✨ Papan Belajar Utama":
                         if idx_start != -1 and idx_end != -1:
                             data_ai = json.loads(teks_raw[idx_start:idx_end+1])
                         else:
-                            st.error("Gagal membaca format JSON dari server.")
+                            st.error("Gagal membaca format data dari server. Coba lagi.")
                             st.stop()
-                    
-                    st.session_state['data_hasil'] = data_ai
-                    st.session_state['skor'] = 0
-                    st.balloons()
-                    st.success("✨ Modul Belajar Siap!")
-                
-            except Exception as e:
-                st.error(f"Terjadi masalah pada server. Detail: {str(e)}")
+                            
+                        st.session_state['data_hasil'] = data_ai
+                        st.session_state['skor'] = 0
+                        st.balloons()
+                        st.success("✨ Modul Belajar Siap!")
+                    except Exception as e_json:
+                        st.error("Mesin gagal menyusun materi. Silakan klik tombol analisis sekali lagi.")
 
     if 'data_hasil' in st.session_state:
         data = st.session_state['data_hasil']
@@ -262,3 +275,10 @@ elif menu == "📚 Perpustakaan Riwayat":
                     
     except Exception as e:
         st.error(f"Gagal membaca perpustakaan database. Detail: {e}")
+```eof
+
+Trik Pemasangan (Sangat Penting):
+1. Pastikan kamu menyalin kodenya dari baris `import streamlit as st` sampai baris yang paling bawah `st.error(f"Gagal...`)`.
+2. Jika mesin cadangannya juga kehabisan limit karena banyak dicoba, silakan terapkan **Solusi 1** (buat API Key pakai Gmail lain). Itu adalah hukum mutlak dari Google jika versi gratis habis.
+
+Web kamu secara teknis sudah sangat luar biasa (SaaS AI mandiri). Semangat, selesaikan tugas ini dengan nilai A+!
