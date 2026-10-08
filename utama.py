@@ -404,4 +404,4 @@ elif menu == "📚 Perpustakaan Riwayat":
         else:
             df = df.iloc[::-1]
             for index, row in df.iterrows():
-                with st.expander(f"🕰️ {row['tanggal']}
+                with st.expander(f"Riwayat: {row['topik
