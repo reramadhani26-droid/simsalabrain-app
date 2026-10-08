@@ -5,8 +5,7 @@ import json
 import os
 from datetime import datetime
 import urllib.request
-import urllib.error
-import re
+import urllib.parse
 from html.parser import HTMLParser
 
 # --- KONFIGURASI HALAMAN ---
@@ -58,6 +57,14 @@ st.markdown("""
         margin-top: 10px;
         box-shadow: 0 4px 6px rgba(253, 160, 133, 0.3);
     }
+    .card-rekomendasi {
+        background: #ffffff;
+        padding: 20px;
+        border-radius: 15px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        margin-bottom: 15px;
+    }
     [data-testid="stSidebar"] {
         background-color: #f8f9fa;
         border-right: 1px solid #e9ecef;
@@ -78,7 +85,7 @@ def simpan_ke_csv(topik, data_json_str):
     df.to_csv(DB_FILE, index=False)
     return True
 
-# --- PARSER HTML SEDERHANA UNTUK SCRAPER URL ---
+# --- HTML TEXT EXTRACTOR UNTUK URL SCRAPING OTOMATIS ---
 class HTMLTextExtractor(HTMLParser):
     def __init__(self):
         super().__init__()
@@ -105,13 +112,13 @@ def ambil_teks_dari_url(url):
             url, 
             headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         )
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=8) as response:
             html_content = response.read().decode('utf-8', errors='ignore')
             parser = HTMLTextExtractor()
             parser.feed(html_content)
             return " ".join(parser.text_result)
     except Exception as e:
-        return f"ERROR: {str(e)}"
+        return ""
 
 # --- SIDEBAR NAVIGASI ---
 with st.sidebar:
@@ -127,9 +134,9 @@ with st.sidebar:
         st.error("⚠️ Brankas API Key belum terisi.")
         
     st.divider()
-    menu = st.radio("Mulai Petualangan:", ["✨ Papan Belajar Utama", "🌐 Telusuri URL Website", "📚 Perpustakaan Riwayat"])
+    menu = st.radio("Mulai Petualangan:", ["✨ Papan Belajar Utama", "🔍 Rekomendasi & Telusuri Web", "📚 Perpustakaan Riwayat"])
 
-# --- MENU 1: PAPAN BELAJAR UTAMA (TEKS & UPLOAD) ---
+# --- MENU 1: PAPAN BELAJAR UTAMA ---
 if menu == "✨ Papan Belajar Utama":
     st.markdown("<h1 class='judul-gradasi'>Ruang Belajar Cerdas</h1>", unsafe_allow_html=True)
     st.markdown("<p style='font-size: 18px; color: #555;'>Ubah teks, PDF, Word, atau Gambar materi menjadi modul interaktif dalam hitungan detik.</p>", unsafe_allow_html=True)
@@ -235,74 +242,107 @@ if menu == "✨ Papan Belajar Utama":
                     except Exception as e_json:
                         st.error("Mesin gagal menyusun materi. Silakan klik tombol analisis sekali lagi.")
 
-# --- MENU 2: TELUSURI URL WEBSITE (FITUR BARU) ---
-elif menu == "🌐 Telusuri URL Website":
-    st.markdown("<h1 class='judul-gradasi'>Penjelajah Web Materi</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='font-size: 18px; color: #555;'>Masukkan tautan (URL) dari situs web atau artikel edukasi di internet untuk dibaca dan dirangkum langsung.</p>", unsafe_allow_html=True)
+# --- MENU 2: REKOMENDASI & TELUSURI WEB BERBASIS TOPIK (FITUR BARU) ---
+elif menu == "🔍 Rekomendasi & Telusuri Web":
+    st.markdown("<h1 class='judul-gradasi'>Rekomendasi Materi Web</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 18px; color: #555;'>Ketik materi atau topik yang ingin Anda pelajari. AI akan merekomendasikan situs web terbaik dan memberikan opsi untuk langsung merangkumnya!</p>", unsafe_allow_html=True)
     st.write("---")
     
-    url_input = st.text_input("🔗 Masukkan Tautan Website (Contoh: https://id.wikipedia.org/wiki/...)", placeholder="https://...")
+    topik_cari = st.text_input("🎯 Ketik Topik / Materi Pelajaran (Contoh: Sejarah Kerajaan Majapahit, Teori Relativitas Einstein)", placeholder="Masukkan topik...")
     
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        btn_tarik = st.button("📥 Tarik & Baca Teks Web", use_container_width=True)
-    with col_btn2:
-        btn_rangkum_url = st.button("🚀 Tarik & Rangkum Jadi Kuis", use_container_width=True)
-        
-    if btn_tarik or btn_rangkum_url:
-        if not url_input:
-            st.warning("⚠️ Masukkan URL tautan website terlebih dahulu!")
+    if st.button("🔍 Cari Rekomendasi Website", use_container_width=True):
+        if not topik_cari:
+            st.warning("⚠️ Masukkan topik atau materi terlebih dahulu!")
+        elif not api_key_rahasia:
+            st.error("⚠️ Sistem terkunci. Cek pengaturan Secrets kamu.")
         else:
-            with st.spinner("🌐 Menghubungkan ke server situs web..."):
-                hasil_scrape = ambil_teks_dari_url(url_input)
-                
-            if hasil_scrape.startswith("ERROR:"):
-                st.error(f"❌ Gagal mengambil konten dari URL tersebut. Pastikan link valid dan dapat diakses publik. Detail: {hasil_scrape}")
-            else:
-                st.success("✅ Konten website berhasil ditarik!")
-                
-                if btn_tarik:
-                    st.markdown("### 📄 Isi Teks Mentah dari Website:")
-                    st.text_area("Teks Artikel", hasil_scrape[:5000] + ("..." if len(hasil_scrape) > 5000 else ""), height=300)
-                    st.info("💡 Anda bisa menyalin teks di atas atau langsung beralih ke tombol 'Tarik & Rangkum Jadi Kuis' untuk membuatnya interaktif.")
+            genai.configure(api_key=api_key_rahasia)
+            prompt_rekomendasi = f"""
+            Bertindaklah sebagai mesin pencari dan penasihat akademik pintar.
+            Pengguna ingin mempelajari topik: "{topik_cari}".
+            Berikan rekomendasi 3 sumber website atau artikel publik nyata yang sangat bagus dan kredibel di internet untuk topik ini (misalnya Wikipedia, Ruangguru, Kompasiana, detikEdu, atau situs edukasi sejenis).
+            
+            KEMBALIKAN OUTPUT HANYA DALAM FORMAT JSON MURNI:
+            [
+              {{"nama_sumber": "...", "url": "https://...", "deskripsi_singkat": "..."}},
+              {{"nama_sumber": "...", "url": "https://...", "deskripsi_singkat": "..."}},
+              {{"nama_sumber": "...", "url": "https://...", "deskripsi_singkat": "..."}}
+            ]
+            """
+            with st.spinner("🔍 Mencari sumber referensi website terbaik di internet..."):
+                try:
+                    model_ai = genai.GenerativeModel("gemini-3.1-pro-preview")
+                    respons = model_ai.generate_content(prompt_rekomendasi)
+                    teks_raw = respons.text
+                    idx_start = teks_raw.find('[')
+                    idx_end = teks_raw.rfind(']')
                     
-                elif btn_rangkum_url:
-                    if not api_key_rahasia:
-                        st.error("⚠️ Sistem terkunci. Cek pengaturan Secrets kamu.")
+                    if idx_start != -1 and idx_end != -1:
+                        rekomendasi_list = json.loads(teks_raw[idx_start:idx_end+1])
+                        st.session_state['list_rekomendasi'] = rekomendasi_list
+                        st.session_state['topik_aktif'] = topik_cari
+                        st.success("✨ Rekomendasi website berhasil ditemukan!")
                     else:
-                        genai.configure(api_key=api_key_rahasia)
-                        prompt_url = f"""
+                        st.error("Gagal memuat rekomendasi. Silakan coba klik sekali lagi.")
+                except Exception as e:
+                    st.error(f"Terjadi kesalahan: {e}")
+
+    # Tampilkan Hasil Rekomendasi Jika Ada
+    if 'list_rekomendasi' in st.session_state:
+        st.write("---")
+        st.markdown(f"### 🌐 Hasil Rekomendasi untuk: *{st.session_state.get('topik_aktif', '')}*")
+        
+        for i, rec in enumerate(st.session_state['list_rekomendasi']):
+            st.markdown(f"""
+            <div class="card-rekomendasi">
+                <h4><b>{i+1}. {rec['nama_sumber']}</b></h4>
+                <p style="color: #64748b; font-size: 14px; margin-bottom: 8px;">{rec['deskripsi_singkat']}</p>
+                <a href="{rec['url']}" target="_blank" style="color: #4f46e5; font-weight: bold; text-decoration: none;">🔗 Kunjungi Website Langsung ↗</a>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Tombol Interaktif untuk Merangkum Website Tersebut Otomatis
+            col_lk, col_rk = st.columns([2, 1])
+            with col_lk:
+                st.caption(f"Tautan: {rec['url']}")
+            with col_rk:
+                if st.button(f"🚀 Rangkum & Buat Kuis Website Ini #{i+1}", key=f"btn_rk_{i}"):
+                    with st.spinner(f"📥 Mengambil teks dari {rec['nama_sumber']} dan menyusun modul..."):
+                        teks_web = ambil_teks_dari_url(rec['url'])
+                        if not teks_web or len(teks_web) < 100:
+                            # Fallback jika website melarang scraping otomatis
+                            teks_web = f"Topik pembahasan dari {rec['nama_sumber']} mengenai {rec['deskripsi_singkat']} dengan fokus pada {st.session_state.get('topik_aktif', '')}."
+                        
+                        prompt_rangkum_situs = f"""
                         Bertindaklah sebagai asisten guru paling jenius.
-                        Berikut adalah teks materi yang diambil langsung dari sebuah halaman web:
-                        {hasil_scrape[:15000]}
+                        Berikut adalah teks materi dari situs web {rec['nama_sumber']} ({rec['url']}):
+                        {teks_web[:15000]}
                         
                         Tugas WAJIB:
-                        1. "topik_utama": Buat judul super menarik dari keseluruhan materi web ini.
-                        2. "ringkasan": Ekstrak SEMUA konsep TANPA ADA YANG TERLEWAT. Buat sangat detail dan rapi. Setiap topik WAJIB punya "penjelasan" panjang, dan "jembatan_keledai" (singkatan atau kalimat lucu untuk menghafal).
+                        1. "topik_utama": Buat judul menarik dari materi ini.
+                        2. "ringkasan": Ekstrak SEMUA konsep TANPA ADA YANG TERLEWAT. Setiap topik WAJIB punya "penjelasan" panjang, dan "jembatan_keledai" (singkatan atau kalimat lucu untuk menghafal).
                         3. "kuis": Buat kuis pilihan ganda. WAJIB MINIMAL 15 SOAL komprehensif, dengan 4 "opsi" (A/B/C/D), "jawaban_benar", dan "pembahasan".
 
                         KEMBALIKAN OUTPUT HANYA FORMAT JSON MURNI:
                         {{"topik_utama": "...", "ringkasan": [{{"topik": "...", "penjelasan": "...", "jembatan_keledai": "..."}}], "kuis": [{{"pertanyaan": "...", "opsi": ["..."], "jawaban_benar": "...", "pembahasan": "..."}}]}}
                         """
-                        with st.spinner("⏳ Menganalisis dan menyusun modul dari internet..."):
-                            try:
-                                model_ai = genai.GenerativeModel("gemini-3.1-pro-preview")
-                                respons = model_ai.generate_content(prompt_url)
-                                teks_raw = respons.text
-                                idx_start = teks_raw.find('{')
-                                idx_end = teks_raw.rfind('}')
-                                
-                                if idx_start != -1 and idx_end != -1:
-                                    data_ai = json.loads(teks_raw[idx_start:idx_end+1])
-                                    st.session_state['data_hasil'] = data_ai
-                                    st.session_state['skor'] = 0
-                                    st.balloons()
-                                    st.success("✨ Modul dari Web Siap! Silakan gulir ke bawah untuk melihat hasil ringkasan dan kuis.")
-                            except Exception as e:
-                                st.error(f"Gagal memproses web via AI: {e}")
+                        try:
+                            model_ai = genai.GenerativeModel("gemini-3.1-pro-preview")
+                            resp_web = model_ai.generate_content(prompt_rangkum_situs)
+                            raw_w = resp_web.text
+                            s_w = raw_w.find('{')
+                            e_w = raw_w.rfind('}')
+                            if s_w != -1 and e_w != -1:
+                                data_web = json.loads(raw_w[s_w:e_w+1])
+                                st.session_state['data_hasil'] = data_web
+                                st.session_state['skor'] = 0
+                                st.balloons()
+                                st.success("✨ Modul Belajar Berhasil Disusun dari Website Tersebut! Gulir ke bawah untuk melihat hasil.")
+                        except Exception as err:
+                            st.error(f"Gagal memproses situs web: {err}")
 
 # --- TAMPILAN HASIL UTAMA (RINGKASAN & KUIS) ---
-if 'data_hasil' in st.session_state and menu in ["✨ Papan Belajar Utama", "🌐 Telusuri URL Website"]:
+if 'data_hasil' in st.session_state and menu in ["✨ Papan Belajar Utama", "🔍 Rekomendasi & Telusuri Web"]:
     data = st.session_state['data_hasil']
     st.write("---")
     
@@ -363,20 +403,4 @@ elif menu == "📚 Perpustakaan Riwayat":
     try:
         df = pd.read_csv(DB_FILE)
         if df.empty:
-            st.info("📦 Perpustakaan masih kosong. Ayo mulai meringkas materi pertamamu!")
-        else:
-            df = df.iloc[::-1]
-            for index, row in df.iterrows():
-                with st.expander(f"🕰️ {row['tanggal']} | {row['topik_utama']}"):
-                    data_riwayat = json.loads(row['data_json'])
-                    
-                    st.markdown("### Ringkasan Materi:")
-                    for item in data_riwayat.get('ringkasan', []):
-                        st.markdown(f"**{item['topik']}**")
-                        st.write(item['penjelasan'])
-                        st.markdown(f"<div style='background-color:#fff3cd; padding:10px; border-radius:5px; color:#856404; font-size:14px;'>💡 <b>Hafalan:</b> {item['jembatan_keledai']}</div><br>", unsafe_allow_html=True)
-                        
-                    st.markdown(f"**Jumlah Soal Kuis:** {len(data_riwayat.get('kuis', []))} Soal Siap Dikerjakan")
-                    
-    except Exception as e:
-        st.error(f"Gagal membaca perpustakaan database. Detail: {e}")
+            st.info("📦 Perpustakaan m
