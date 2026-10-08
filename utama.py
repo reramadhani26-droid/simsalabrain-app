@@ -74,22 +74,18 @@ def simpan_ke_csv(topik, data_json_str):
     df.to_csv(DB_FILE, index=False)
     return True
 
-# --- API KEY DARI SECRETS ---
-try:
-    api_key_rahasia = st.secrets["GEMINI_API_KEY"]
-except:
-    api_key_rahasia = ""
-
 # --- SIDEBAR NAVIGASI ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #764ba2;'>🚀 SimSalaBrain</h1>", unsafe_allow_html=True)
     st.caption("<p style='text-align: center; font-weight: bold;'>Education Cloud Pro</p>", unsafe_allow_html=True)
     st.divider()
     
-    if api_key_rahasia:
-        st.success("🔒 Sistem Enkripsi Cloud Aktif.")
-    else:
-        st.error("⚠️ Brankas API Key belum terisi di Settings.")
+    st.success("🔒 Sistem Enkripsi Cloud Aktif.")
+    try:
+        api_key_rahasia = st.secrets["GEMINI_API_KEY"]
+    except:
+        api_key_rahasia = ""
+        st.error("⚠️ Brankas API Key belum terisi.")
         
     st.divider()
     menu = st.radio("Mulai Petualangan:", ["✨ Papan Belajar Utama", "📚 Perpustakaan Riwayat"])
@@ -165,10 +161,12 @@ if menu == "✨ Papan Belajar Utama":
 
             if bisa_diproses:
                 with st.spinner("⏳ Mengaktifkan Mesin Pembelajaran Otomatis..."):
+                    
+                    # DAFTAR MESIN TERBARU (OTOMATIS PILIH YANG AKTIF)
                     daftar_mesin = [
-                        "gemini-1.5-pro",
-                        "gemini-pro",
-                        "gemini-1.0-pro"
+                        "gemini-3.1-pro-preview",
+                        "gemini-3-flash-preview",
+                        "gemini-3.8-flash"
                     ]
                     
                     respons = None
@@ -187,6 +185,7 @@ if menu == "✨ Papan Belajar Utama":
                         st.error(f"❌ Server AI Menolak Permintaan: {error_terakhir}. Pastikan API Key valid.")
                         st.stop()
                     
+                    # Memproses Hasil JSON
                     try:
                         teks_raw = respons.text
                         idx_start = teks_raw.find('{')
