@@ -43,67 +43,109 @@ with st.sidebar:
 # --- MENU 1: BUAT RINGKASAN ---
 if menu == "✨ Buat Ringkasan":
     st.title("Ruang Belajar Cerdas")
-    st.markdown("Ubah materi panjang jadi ringkasan & kuis dalam sekejap.")
+    st.markdown("Ubah materi (Teks, PDF, Word, PPT, atau Gambar) jadi ringkasan & kuis dalam sekejap.")
     
-    kolom_input, kolom_kosong = st.columns([2, 1])
-    with kolom_input:
-        materi_teks = st.text_area("1. Masukkan Teks Materi:", height=200, placeholder="Ketik atau paste materi pelajaran di sini...")
+    # Membagi layar jadi 2 kolom agar rapi
+    kolom_teks, kolom_file = st.columns(2)
+    
+    with kolom_teks:
+        materi_teks = st.text_area("1. Ketik / Paste Teks Materi (Opsional):", height=150, placeholder="Ketik atau paste materi pelajaran di sini...")
+        
+    with kolom_file:
+        file_unggahan = st.file_uploader("2. ATAU Unggah File Dokumen/Foto:", type=["pdf", "docx", "pptx", "txt", "jpg", "jpeg", "png"])
         
     tombol_proses = st.button("🚀 Analisis & Buat Sekarang!", type="primary", use_container_width=True)
     
     if tombol_proses:
         if not api_key_rahasia:
-            st.error("⚠️ Sistem tidak bisa berjalan. Cek koneksi server pusat.")
-        elif not materi_teks:
-            st.warning("⚠️ Teks materi tidak boleh kosong!")
+            st.error("⚠️ Sistem tidak bisa berjalan. Cek pengaturan Brankas (Secrets) kamu.")
+        elif not materi_teks and file_unggahan is None:
+            st.warning("⚠️ Masukkan teks materi atau unggah file terlebih dahulu!")
         else:
             try:
                 genai.configure(api_key=api_key_rahasia)
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 
-                # Menggunakan mesin paling stabil dan kuat saat ini
-                model_aktif = 'gemini-1.5-flash'
-                st.success("✅ Terhubung ke Mesin Pembelajaran Otomatis.")
-                
-                model = genai.GenerativeModel(model_aktif)
-                
-                prompt = f"""
+                # Instruksi Dasar untuk AI
+                prompt_instruksi = """
                 Bertindaklah sebagai asisten guru terbaik.
-                Tugas WAJIB dari teks yang diberikan:
+                Tugas WAJIB dari teks atau dokumen yang diberikan:
                 1. "topik_utama": Buat judul singkat dari keseluruhan materi.
-                2. "ringkasan": Ekstrak SEMUA konsep dari teks HINGGA TUNTAS. JANGAN ADA materi yang dihilangkan. Buat ringkasan yang SANGAT LENGKAP mencakup seluruh isi teks. Setiap topik WAJIB memiliki "penjelasan" mendalam, dan "jembatan_keledai" (singkatan lucu/unik untuk mempermudah hafalan).
+                2. "ringkasan": Ekstrak SEMUA konsep dari teks HINGGA TUNTAS. JANGAN ADA materi penting yang dihilangkan. Buat ringkasan yang SANGAT LENGKAP mencakup seluruh isi teks. Setiap topik WAJIB memiliki "penjelasan" mendalam, dan "jembatan_keledai" (singkatan lucu/unik untuk mempermudah hafalan).
                 3. "kuis": Buat kuis pilihan ganda. WAJIB MINIMAL 15 SOAL komprehensif, memiliki 4 "opsi" (A/B/C/D), "jawaban_benar", dan "pembahasan".
 
                 KEMBALIKAN OUTPUT HANYA DALAM FORMAT JSON murni, tanpa markdown.
-                Struktur JSON: {{"topik_utama": "...", "ringkasan": [{{"topik": "...", "penjelasan": "...", "jembatan_keledai": "..."}}], "kuis": [{{"pertanyaan": "...", "opsi": ["..."], "jawaban_benar": "...", "pembahasan": "..."}}]}}
-                
-                Materi:
-                {materi_teks}
+                Struktur JSON: {"topik_utama": "...", "ringkasan": [{"topik": "...", "penjelasan": "...", "jembatan_keledai": "..."}], "kuis": [{"pertanyaan": "...", "opsi": ["..."], "jawaban_benar": "...", "pembahasan": "..."}]}
                 """
                 
-                with st.spinner("🧠 Mesin sedang membaca, merumuskan metode hafalan, dan menyusun kuis..."):
-                    respons = model.generate_content(prompt)
-                    teks_mentah = respons.text
-                    
-                    # --- PENYARING DATA CERDAS (Mencegah Error) ---
-                    # Mencari kurung kurawal pembuka dan penutup untuk memastikan format JSON bersih
-                    awal_json = teks_mentah.find('{')
-                    akhir_json = teks_mentah.rfind('}')
-                    
-                    if awal_json != -1 and akhir_json != -1:
-                        teks_json_bersih = teks_mentah[awal_json:akhir_json+1]
-                        data_ai = json.loads(teks_json_bersih)
-                    else:
-                        # Jika tidak ditemukan, coba parse paksa
-                        data_ai = json.loads(teks_mentah)
+                # Mempersiapkan paket data untuk dikirim ke AI
+                paket_data_ai = [prompt_instruksi]
                 
-                st.session_state['data_hasil'] = data_ai
-                st.session_state['skor'] = 0
-                st.success("✅ Analisis Materi Selesai!")
+                if materi_teks:
+                    paket_data_ai.append(f"\nMateri Tambahan Berupa Teks:\n{materi_teks}")
+                
+                bisa_diproses = True
+                
+                # Membaca file jika ada yang diupload
+                if file_unggahan is not None:
+                    tipe_file = file_unggahan.name.split('.')[-1].lower()
+                    
+                    # Jika file didukung langsung oleh sistem AI (PDF & Gambar)
+                    if tipe_file == 'pdf' or tipe_file in ['jpg', 'jpeg', 'png']:
+                        paket_data_ai.append({
+                            "mime_type": file_unggahan.type,
+                            "data": file_unggahan.getvalue()
+                        })
+                    # Jika TXT biasa
+                    elif tipe_file == 'txt':
+                        paket_data_ai.append(f"\nIsi Dokumen TXT:\n{file_unggahan.getvalue().decode('utf-8')}")
+                    # Jika Microsoft Word
+                    elif tipe_file == 'docx':
+                        try:
+                            import docx
+                            doc = docx.Document(file_unggahan)
+                            teks_word = '\n'.join([para.text for para in doc.paragraphs])
+                            paket_data_ai.append(f"\nIsi Dokumen Word:\n{teks_word}")
+                        except ImportError:
+                            st.error("⚠️ Modul 'python-docx' belum diinstal. Pastikan file requirements.txt sudah diupdate!")
+                            bisa_diproses = False
+                    # Jika PowerPoint
+                    elif tipe_file == 'pptx':
+                        try:
+                            from pptx import Presentation
+                            prs = Presentation(file_unggahan)
+                            teks_ppt = []
+                            for slide in prs.slides:
+                                for shape in slide.shapes:
+                                    if hasattr(shape, "text"):
+                                        teks_ppt.append(shape.text)
+                            paket_data_ai.append(f"\nIsi Presentasi PPT:\n{chr(10).join(teks_ppt)}")
+                        except ImportError:
+                            st.error("⚠️ Modul 'python-pptx' belum diinstal. Pastikan file requirements.txt sudah diupdate!")
+                            bisa_diproses = False
+                
+                # Eksekusi AI jika tidak ada error pada file
+                if bisa_diproses:
+                    with st.spinner("🧠 Mesin sedang membaca dokumen, merumuskan metode hafalan, dan menyusun kuis..."):
+                        respons = model.generate_content(paket_data_ai)
+                        
+                        # Penyaring JSON Otomatis
+                        teks_mentah = respons.text
+                        awal_json = teks_mentah.find('{')
+                        akhir_json = teks_mentah.rfind('}')
+                        
+                        if awal_json != -1 and akhir_json != -1:
+                            teks_json_bersih = teks_mentah[awal_json:akhir_json+1]
+                            data_ai = json.loads(teks_json_bersih)
+                        else:
+                            data_ai = json.loads(teks_mentah)
+                    
+                    st.session_state['data_hasil'] = data_ai
+                    st.session_state['skor'] = 0
+                    st.success("✅ Analisis Materi Selesai!")
                 
             except Exception as e:
-                # Sekarang pesan error aslinya akan dimunculkan ke layar
                 st.error(f"⚠️ Proses Gagal! Detail Error: {str(e)}")
-                st.info("💡 Jika error bertuliskan 'JSON', coba ubah teks materi menjadi lebih singkat. Jika '404', API Key mungkin perlu diperiksa.")
 
     if 'data_hasil' in st.session_state:
         data = st.session_state['data_hasil']
