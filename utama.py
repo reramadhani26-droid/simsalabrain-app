@@ -11,51 +11,34 @@ st.set_page_config(page_title="SimSalaBrain Premium", page_icon="🧠", layout="
 # --- INISIALISASI DATABASE CSV ---
 DB_FILE = "riwayat.csv"
 if not os.path.exists(DB_FILE):
-    df_awal = pd.DataFrame(columns=["email_user", "tanggal", "topik_utama", "data_json"])
+    df_awal = pd.DataFrame(columns=["tanggal", "topik_utama", "data_json"])
     df_awal.to_csv(DB_FILE, index=False)
-else:
-    # Perbaikan otomatis jika database lama belum punya kolom email
-    df_cek = pd.read_csv(DB_FILE)
-    if "email_user" not in df_cek.columns:
-        df_cek.insert(0, "email_user", "pengguna_lama@gmail.com")
-        df_cek.to_csv(DB_FILE, index=False)
 
 # --- FUNGSI SIMPAN KE DATABASE ---
-def simpan_ke_csv(email, topik, data_json_str):
+def simpan_ke_csv(topik, data_json_str):
     df = pd.read_csv(DB_FILE)
     waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    baris_baru = pd.DataFrame([{"email_user": email, "tanggal": waktu_sekarang, "topik_utama": topik, "data_json": data_json_str}])
+    baris_baru = pd.DataFrame([{"tanggal": waktu_sekarang, "topik_utama": topik, "data_json": data_json_str}])
     df = pd.concat([df, baris_baru], ignore_index=True)
     df.to_csv(DB_FILE, index=False)
     return True
 
-# --- SISTEM SESI LOGIN ---
-if 'user_email' not in st.session_state:
-    st.session_state['user_email'] = ""
-
-# --- SIDEBAR NAVIGASI & LOGIN ---
+# --- SIDEBAR NAVIGASI & API KEY ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center;'>🧠 SimSalaBrain</h1>", unsafe_allow_html=True)
-    
-    # Logika Login
-    if st.session_state['user_email'] == "":
-        st.info("👋 Silakan masuk untuk menyimpan riwayat belajarmu.")
-        email_input = st.text_input("Gunakan Akun Google (Email):", placeholder="contoh@gmail.com")
-        if st.button("Masuk Sekarang"):
-            if "@" in email_input and "." in email_input:
-                st.session_state['user_email'] = email_input.lower()
-                st.rerun()
-            else:
-                st.error("Format email tidak valid!")
-        st.stop() # Hentikan proses jika belum login
-    else:
-        st.success(f"👤 Login sebagai:\n**{st.session_state['user_email']}**")
-        if st.button("Keluar (Logout)"):
-            st.session_state['user_email'] = ""
-            st.rerun()
-            
+    st.caption("<p style='text-align: center;'>Premium Cloud</p>", unsafe_allow_html=True)
     st.divider()
-    menu = st.radio("Navigasi Menu", ["✨ Buat Ringkasan", "📚 Riwayat Pribadi"])
+    
+    st.info("🔑 API Key terbaca aman dari Brankas (Secrets).")
+    # Mengambil API key langsung dari Secrets (Brankas)
+    try:
+        api_key_rahasia = st.secrets["GEMINI_API_KEY"]
+    except:
+        api_key_rahasia = ""
+        st.error("⚠️ API Key belum dipasang di pengaturan Secrets Streamlit.")
+        
+    st.divider()
+    menu = st.radio("Navigasi Menu", ["✨ Buat Ringkasan", "📚 Riwayat Belajar"])
 
 # --- MENU 1: BUAT RINGKASAN ---
 if menu == "✨ Buat Ringkasan":
@@ -69,16 +52,32 @@ if menu == "✨ Buat Ringkasan":
     tombol_proses = st.button("🚀 Analisis & Buat Sekarang!", type="primary", use_container_width=True)
     
     if tombol_proses:
-        if not materi_teks:
+        if not api_key_rahasia:
+            st.error("⚠️ Sistem tidak bisa berjalan. Cek menu Secrets di pengaturan Streamlit.")
+        elif not materi_teks:
             st.warning("⚠️ Teks materi tidak boleh kosong!")
         else:
             try:
-                # Mengambil API Key dari Brankas Rahasia Streamlit (Secrets)
-                api_key_rahasia = st.secrets["GEMINI_API_KEY"]
                 genai.configure(api_key=api_key_rahasia)
                 
-                # MENGGUNAKAN MODEL STANDAR (ANTI-ERROR)
-                model = genai.GenerativeModel('gemini-pro')
+                # --- SISTEM DETEKSI MODEL OTOMATIS (ANTI 404 ERROR) ---
+                with st.spinner("Mencari server AI yang tersedia untuk akunmu..."):
+                    # Bertanya ke Google model apa saja yang aktif
+                    daftar_model = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                    
+                    if not daftar_model:
+                        st.error("⚠️ API Key kamu tidak diizinkan menggunakan AI. Cek kembali akun Google-mu.")
+                        st.stop()
+                        
+                    # Otomatis memilih model yang diizinkan (Cari yang ada kata 'flash', jika tidak ada pakai apa saja yang aktif)
+                    model_aktif = daftar_model[0] 
+                    for m in daftar_model:
+                        if '1.5-flash' in m:
+                            model_aktif = m
+                            break
+                            
+                st.info(f"✅ Terhubung ke server AI: **{model_aktif.replace('models/', '')}**")
+                model = genai.GenerativeModel(model_aktif)
                 
                 prompt = f"""
                 Bertindaklah sebagai asisten guru terbaik.
@@ -94,7 +93,7 @@ if menu == "✨ Buat Ringkasan":
                 {materi_teks}
                 """
                 
-                with st.spinner("🧠 Otak AI sedang membaca dan menyusun materi..."):
+                with st.spinner("🧠 Otak AI sedang membaca, merumuskan jembatan keledai, dan menyusun kuis..."):
                     respons = model.generate_content(prompt)
                     teks_bersih = respons.text.replace("```json", "").replace("```", "").strip()
                     data_ai = json.loads(teks_bersih)
@@ -103,8 +102,6 @@ if menu == "✨ Buat Ringkasan":
                 st.session_state['skor'] = 0
                 st.success("✅ Analisis Selesai!")
                 
-            except KeyError:
-                st.error("⚠️ SISTEM ERROR: API Key belum dimasukkan ke 'Secrets' di pengaturan Streamlit Cloud! Lapor ke pembuat web.")
             except Exception as e:
                 st.error(f"Terjadi kesalahan saat memproses data: {e}")
 
@@ -116,9 +113,9 @@ if menu == "✨ Buat Ringkasan":
         with col_judul:
             st.header(f"📑 {data.get('topik_utama', 'Materi Pelajaran')}")
         with col_simpan:
-            if st.button("💾 Simpan ke Riwayat Saya"):
-                simpan_ke_csv(st.session_state['user_email'], data.get('topik_utama', 'Ringkasan'), json.dumps(data))
-                st.toast('Tersimpan ke Riwayat Pribadi!', icon='✅')
+            if st.button("💾 Simpan ke Database"):
+                simpan_ke_csv(data.get('topik_utama', 'Ringkasan'), json.dumps(data))
+                st.toast('Tersimpan ke Riwayat!', icon='✅')
 
         st.subheader("Fase 1: Pahami Intisari & Hafalkan")
         for idx, item in enumerate(data.get('ringkasan', [])):
@@ -157,20 +154,17 @@ if menu == "✨ Buat Ringkasan":
                     st.error(f"**No {i+1}: SALAH** (Kunci: {soal['jawaban_benar']}) - {soal['pembahasan']}")
 
 # --- MENU 2: RIWAYAT BELAJAR ---
-elif menu == "📚 Riwayat Pribadi":
-    st.title("Database Cloud Pribadi")
-    st.markdown(f"Hanya menampilkan materi milik: **{st.session_state['user_email']}**")
+elif menu == "📚 Riwayat Belajar":
+    st.title("Database Cloud (Riwayat)")
+    st.markdown("Semua ringkasan yang kamu simpan tercatat di sini.")
     
     try:
         df = pd.read_csv(DB_FILE)
-        # Filter (Saring) data agar hanya menampilkan riwayat milik email yang sedang login
-        df_pribadi = df[df['email_user'] == st.session_state['user_email']]
-        
-        if df_pribadi.empty:
-            st.info("Riwayatmu masih kosong. Yuk buat ringkasan pertamamu!")
+        if df.empty:
+            st.info("Riwayat masih kosong. Yuk buat ringkasan pertamamu!")
         else:
-            df_pribadi = df_pribadi.iloc[::-1] # Balik urutan agar yang terbaru di atas
-            for index, row in df_pribadi.iterrows():
+            df = df.iloc[::-1]
+            for index, row in df.iterrows():
                 with st.expander(f"🕰️ {row['tanggal']} | {row['topik_utama']}"):
                     data_riwayat = json.loads(row['data_json'])
                     
@@ -182,4 +176,4 @@ elif menu == "📚 Riwayat Pribadi":
                     st.markdown("**Soal Kuis Tersedia:** " + str(len(data_riwayat.get('kuis', []))) + " Soal")
                     
     except Exception as e:
-        st.error(f"Gagal membaca database: {e}")
+        st.error("Gagal membaca database. Pastikan file riwayat.csv tersedia.")
